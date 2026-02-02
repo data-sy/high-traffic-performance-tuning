@@ -22,3 +22,30 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Gradle (Spring Boot)
+build/
+.gradle/
+
+# Maven
+target/
+
+# 환경 설정 (민감 정보)
+application-local.yml
+application-secret.yml
+.env
+
+# 로그 폴더
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
