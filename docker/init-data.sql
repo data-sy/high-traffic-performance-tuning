@@ -1,1 +1,2 @@
--- Test data added in Phase 2
+-- Intentionally empty: tables are created by Hibernate (ddl-auto)
+-- Seed data is loaded via scripts/init-seed-data.sh after app startup
