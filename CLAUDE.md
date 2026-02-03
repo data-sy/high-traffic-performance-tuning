@@ -58,6 +58,13 @@ Each scenario has v1~v4 endpoints representing each optimization attempt:
   - `org.hibernate.SQL: DEBUG`
   - `org.hibernate.orm.jdbc.bind: TRACE`
 
+## Docker Usage
+- `docker compose -f docker/docker-compose.yml up -d` starts containers
+- `docker compose -f docker/docker-compose.yml down` stops containers but keeps data (volumes preserved)
+- `docker compose -f docker/docker-compose.yml down -v` deletes volumes — ALL DATA IS LOST
+- After `-v` (full reset): must re-run the app (`ddl-auto: create`) to recreate tables, then `scripts/init-seed-data.sh` and/or `scripts/generate-test-data.sh` to reload data
+- Never use `-v` unless intentionally doing a full reset
+
 ## Conventions
 - Package structure: `com.project.{layer}.{domain}`
 - Response DTOs in `api/{domain}/dto/`. Never expose entities directly.
