@@ -3,7 +3,7 @@
 # Note: MySQL CLI with -p flag outputs "[Warning] Using a password on the command line
 # interface can be insecure." to stderr. This is normal, not an error. Suppressed by 2>/dev/null.
 
-MYSQL_HOST=localhost
+MYSQL_HOST=127.0.0.1
 MYSQL_PORT=3306
 MYSQL_USER=root
 MYSQL_PASSWORD=root
