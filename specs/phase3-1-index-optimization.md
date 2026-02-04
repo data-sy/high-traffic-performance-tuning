@@ -1,272 +1,339 @@
-# Phase 3-1 — 인덱스 최적화 (상품 목록 조회)
+# Phase 3-1 — 인덱스 최적화 구현
+
+## 현재 상태
+- Phase 1 (프로젝트 셋업), Phase 2 (도메인 엔티티 + 테스트 데이터) 완료
+- Product 테이블에 10만 건 존재 (카테고리별 2만 건: 전자기기, 의류, 식품, 도서, 스포츠)
+- `ddl-auto: validate` 활성 상태. 변경 금지
+- Docker 컨테이너 (MySQL, Redis) 실행 중 (`docker compose up -d`)
+- PoC 검증 완료. 도구 (MySQL CLI, EXPLAIN, k6) 정상 동작 확인됨
 
 ## 목표
-카테고리별 상품 목록 조회 API를 구현하고, 인덱스 유무에 따른 성능 차이를 EXPLAIN과 k6로 측정할 수 있는 환경을 구성한다. 최종 상태: API 1개 + 인덱스 SQL 스크립트 6개 + EXPLAIN 측정 자동화 스크립트 + k6 부하 테스트 스크립트 + k6 결과 저장 스크립트 준비 완료.
+카테고리 필터링 + 페이징 상품 목록 API를 구현하고, 인덱스 스크립트와 측정 자동화를 만들어 5가지 인덱스 전략(step1~step5)을 비교한다.
 
-## 배경
+## 중요 규칙
+- 먼저 `CLAUDE.md`를 읽고 프로젝트 컨벤션을 확인할 것
+- v1~v4 별도 컨트롤러를 만들지 말 것. 이 시나리오는 **단일 컨트롤러 + 단일 서비스**를 사용한다. before/after 차이는 코드가 아닌 **인덱스 SQL 스크립트** 적용 여부로 발생한다
+- 셸 스크립트에 `set -e`를 사용하지 말 것. 일부 명령어는 의도적으로 실패한다 (예: 존재하지 않는 인덱스에 DROP INDEX)
+- MySQL 자격증명은 하드코딩: `root/root`, 데이터베이스 `flashdeal`, 호스트 `127.0.0.1`, 포트 `3306`. 파라미터화 금지
+- 모든 `.sh` 파일은 실행 권한 필수 (`chmod +x`)
 
-### 트러블슈팅 스토리 (참고용, 구현에는 영향 없음)
-이 Phase의 목적은 아래 트러블슈팅을 재현하고 검증하는 것이다:
-- **문제**: `SELECT * FROM product WHERE category = ? ORDER BY created_at DESC LIMIT 20` 쿼리가 인덱스 없이 Full Table Scan + filesort 발생
-- **해결**: `(category, created_at DESC)` 복합 인덱스 적용으로 93% 개선
-- **추가 실험**: 단일 인덱스, 역순 복합 인덱스도 EXPLAIN으로 비교
+---
 
-### API 설계 원칙
-인덱스 시나리오는 **API가 1개**이다. 쿼리 자체는 동일하고 DB 인덱스만 바뀌므로, 컨트롤러를 분리하지 않는다. 인덱스 교체는 SQL 스크립트로 제어한다.
+## Step A: API 구현
 
-## 대상 쿼리
-```sql
-SELECT * FROM product
-WHERE category = ?
-ORDER BY created_at DESC
-LIMIT ?, ?;
-```
+### 제한사항
+- Product 엔티티를 어떤 식으로든 수정하지 말 것
+- Controller나 Service에서 Product 엔티티를 직접 반환하지 말 것. 반드시 DTO를 사용할 것
+- Controller → Service → Repository 호출 순서 필수. 단축 금지
 
-## 작업 항목
-
-### 1. ProductRepository 조회 메서드
-- 위치: `domain/product/ProductRepository.java`
-- Spring Data JPA 메서드:
-```java
-Page<Product> findByCategoryOrderByCreatedAtDesc(String category, Pageable pageable);
-```
-- 추가 메서드 없이 이것 하나만 추가한다.
+### 1. ProductRepository — 쿼리 메서드 추가
+- 위치: 프로젝트의 `domain/product` 패키지에 있는 기존 `ProductRepository.java`
+- 메서드: `Page<Product> findByCategoryOrderByCreatedAtDesc(String category, Pageable pageable)`
+- PoC 단계에서 이미 존재할 수 있음. 있으면 그대로 유지
 
 ### 2. ProductListResponse DTO
-- 위치: `api/product/dto/ProductListResponse.java`
+- 위치: 프로젝트 베이스 패키지 하위 `api/product/dto/ProductListResponse.java`
 - 필드: `id`(Long), `name`(String), `price`(Integer), `category`(String), `createdAt`(LocalDateTime)
-- `stock`, `salesCount`는 목록 조회에서 불필요하므로 제외한다.
-- 정적 팩토리 메서드: `public static ProductListResponse from(Product product)`
+- **제외 필수**: `stock`, `salesCount` — 응답에 포함되면 안 됨
+- 프로젝트 Lombok 컨벤션에 따라 `@Getter`와 생성자 (또는 `@Builder`) 사용
+- 정적 팩토리 메서드 추가: `public static ProductListResponse from(Product product)`
 
 ### 3. ProductService
-- 위치: `service/product/ProductService.java`
-- 메서드: `Page<ProductListResponse> getProductsByCategory(String category, Pageable pageable)`
-- Repository 호출 → DTO 변환 → 반환. 별도 비즈니스 로직 없음.
+- 위치: 프로젝트 베이스 패키지 하위 `service/product/ProductService.java`
+- 메서드: `public Page<ProductListResponse> getProducts(String category, Pageable pageable)`
+- `productRepository.findByCategoryOrderByCreatedAtDesc(category, pageable)` 호출
+- Product를 ProductListResponse로 팩토리 메서드를 사용해 변환
+- `@Service`, `@RequiredArgsConstructor`, `@Transactional(readOnly = true)`
 
 ### 4. ProductController
-- 위치: `api/product/ProductController.java`
+- 위치: 프로젝트 베이스 패키지 하위 `api/product/ProductController.java`
 - 엔드포인트: `GET /api/v1/products`
-- 파라미터:
-  - `category` — String, 필수, `@RequestParam`
-  - `page` — int, 기본값 0
-  - `size` — int, 기본값 20
-- 응답: `Page<ProductListResponse>` (Spring Data의 기본 페이징 응답 형태)
+- 파라미터: `@RequestParam String category`, `@RequestParam(defaultValue = "0") int page`, `@RequestParam(defaultValue = "20") int size`
+- Controller에서 `PageRequest.of(page, size)`를 생성하여 Service에 Pageable로 전달
+- 반환: `Page<ProductListResponse>`
+- `@RestController`, `@RequiredArgsConstructor`
 
-### 5. 테스트 데이터 확인
-- Phase 2의 `scripts/generate-test-data.sh`로 이미 Product 10만 건이 생성되어 있어야 한다.
-- category 5종 (전자기기, 의류, 식품, 도서, 스포츠) 균등 분배 확인.
-- **별도 데이터 생성 스크립트를 추가하지 않는다.** 기존 데이터가 없으면 Phase 2 스크립트를 먼저 실행한다.
+### Step A 빌드 확인
+- `./gradlew compileJava`로 컴파일 성공 여부 확인
+- 애플리케이션 실행(`bootRun`)이나 테스트를 돌리지 말 것. 런타임 검증은 직접 수행
 
-### 6. 인덱스 SQL 스크립트
-위치: `scripts/index/`
+### Step A 검증 (직접 수행)
+```
+GET /api/v1/products?category=전자기기&page=0&size=20
+→ 200 응답
+→ JSON에 content, totalElements, totalPages 필드 존재
+→ content 항목에 id, name, price, category, createdAt 존재
+→ content 항목에 stock, salesCount 미포함
+→ 존재하지 않는 카테고리 요청 시 빈 content로 200 응답
+```
 
-**step0-drop-all.sql** — 모든 커스텀 인덱스 제거
+### Step A 커밋
+검증 통과 후 `/commit`으로 커밋
+
+---
+
+## Step B: 인덱스 SQL 스크립트
+
+### 위치: `scripts/index/`
+
+SQL 파일 6개 생성. 각 스크립트는 독립 실행 가능하고 멱등해야 한다.
+
+### step0-drop-all.sql
+모든 커스텀 인덱스를 제거한다. 다른 step 적용 전 리셋용.
 ```sql
--- product 테이블의 커스텀 인덱스만 제거 (PK 인덱스는 건드리지 않음)
+-- 모든 커스텀 인덱스 제거 (존재하지 않으면 에러 발생 — 의도된 동작)
+-- MySQL은 DROP INDEX IF EXISTS를 지원하지 않으므로 개별 실행
+-- run-explain.sh에서 || true로 에러를 처리함
 DROP INDEX idx_product_category ON product;
 DROP INDEX idx_product_created_at ON product;
 DROP INDEX idx_product_category_created ON product;
 DROP INDEX idx_product_created_category ON product;
 ```
-- 존재하지 않는 인덱스 DROP 시 에러 방지: 각 DROP 문 앞에 존재 여부 체크 또는 개별 실행 가능하도록 구성한다.
-- 실행 순서상 항상 step0을 먼저 실행한 뒤 다른 step을 적용한다.
+**참고:** 인덱스가 없으면 실패한다. 이는 예상된 동작이다. 이 파일을 호출하는 셸 스크립트에서 `|| true`로 에러를 억제한다.
 
-**step1-no-index.sql** — 인덱스 없음 (명시용)
+### step1-no-index.sql
 ```sql
--- 인덱스 없음 상태. step0-drop-all.sql 실행과 동일.
--- 이 파일은 실험 흐름의 명시성을 위해 존재한다.
-SELECT 'No custom index applied' AS status;
+-- Step 1: 인덱스 없음 (기준선)
+-- 이 파일은 의도적으로 비어있다.
+-- step0-drop-all.sql로 모든 인덱스를 제거한 상태가 기준선이다.
+-- 다른 step과의 대칭성과 문서화를 위해 존재한다.
 ```
 
-**step2-category-only.sql** — category 단일 인덱스
+### step2-category-only.sql
 ```sql
+-- Step 2: category 단일 인덱스
 CREATE INDEX idx_product_category ON product(category);
 ```
 
-**step3-created-at-only.sql** — created_at 단일 인덱스
+### step3-created-at-only.sql
 ```sql
+-- Step 3: created_at 단일 인덱스
 CREATE INDEX idx_product_created_at ON product(created_at DESC);
 ```
 
-**step4-composite.sql** — (category, created_at DESC) 복합 인덱스
+### step4-composite.sql
 ```sql
+-- Step 4: 복합 인덱스 (category, created_at DESC) — 최적 해법
 CREATE INDEX idx_product_category_created ON product(category, created_at DESC);
 ```
 
-**step5-reverse-composite.sql** — (created_at, category) 역순 복합 인덱스 (실험용)
+### step5-reverse-composite.sql
 ```sql
+-- Step 5: 역순 복합 인덱스 (created_at DESC, category) — 실험용
+-- 복합 인덱스에서 컬럼 순서가 왜 중요한지 보여준다
 CREATE INDEX idx_product_created_category ON product(created_at DESC, category);
 ```
 
-### 7. 측정 자동화 스크립트
-위치: `scripts/measure/run-explain.sh`
-
-이 스크립트는 각 인덱스 단계별로 step0 초기화 → 인덱스 적용 → EXPLAIN 실행 → 결과 저장을 자동화한다.
-
-**동작:**
-1. `results/explain/` 디렉토리 생성
-2. 각 step(1~5)에 대해:
-   - step0-drop-all.sql 실행 (인덱스 초기화)
-   - stepN 인덱스 SQL 실행
-   - `EXPLAIN SELECT * FROM product WHERE category = '전자기기' ORDER BY created_at DESC LIMIT 20;` 실행 → `results/explain/stepN-{name}.txt` 저장
-   - `EXPLAIN FORMAT=JSON SELECT * FROM product WHERE category = '전자기기' ORDER BY created_at DESC LIMIT 20;` 실행 → `results/explain/stepN-{name}.json` 저장
-3. 완료 메시지 출력
-
-**MySQL 접속 정보:**
-```bash
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=root
-MYSQL_DATABASE=flashdeal
+### Step B 검증 (직접 수행)
+```
+- scripts/index/에 파일 6개 존재 (step0~step5)
+- step0 실행 → 깨끗한 상태에서 에러 없이 완료 (|| true가 미존재 인덱스 에러 처리)
+- step4 실행 → SHOW INDEX FROM product에서 idx_product_category_created 확인
+- step0 재실행 → 커스텀 인덱스 전부 제거 확인
+- step0 → step2 → step0 → step3 순서 실행 시 인덱스 겹침 없음
 ```
 
-**결과 파일 구조:**
+### Step B 커밋
+검증 통과 후 `/commit`으로 커밋
+
+---
+
+## Step C: EXPLAIN 측정 자동화
+
+### scripts/measure/run-explain.sh
+
+5개 step을 순회하며 인덱스를 적용하고, EXPLAIN을 실행하여 결과를 저장하는 스크립트.
+
+**로직:**
 ```
-results/explain/
-├── step1-no-index.txt
-├── step1-no-index.json
-├── step2-category-only.txt
-├── step2-category-only.json
-├── step3-created-at-only.txt
-├── step3-created-at-only.json
-├── step4-composite.txt
-├── step4-composite.json
-├── step5-reverse-composite.txt
-└── step5-reverse-composite.json
+각 step (1~5)에 대해:
+  1. step0-drop-all.sql 실행 (리셋 — 각 DROP 명령어를 2>/dev/null || true로 처리)
+  2. stepN SQL 실행 (인덱스 적용 — 2>/dev/null)
+  3. 대상 쿼리에 EXPLAIN 실행 → results/explain/stepN-{이름}.txt에 저장
+  4. 같은 쿼리에 EXPLAIN FORMAT=JSON 실행 → results/explain/stepN-{이름}.json에 저장
 ```
 
-**주의:**
-- step0의 DROP INDEX에서 인덱스가 존재하지 않으면 에러가 발생한다. `2>/dev/null` 또는 조건부 DROP으로 처리한다.
-- 스크립트에 실행 권한을 부여한다: `chmod +x scripts/measure/run-explain.sh`
+**대상 쿼리:**
+```sql
+SELECT * FROM product WHERE category = '전자기기' ORDER BY created_at DESC LIMIT 20
+```
 
-### 8. results 디렉토리
-- `results/explain/.gitkeep` 파일을 생성하여 디렉토리를 Git에 포함시킨다.
-- `.gitignore`에 `results/explain/*.txt`와 `results/explain/*.json`을 추가하여 실제 측정 결과는 커밋하지 않는다.
+**출력 파일 (총 10개):**
+```
+results/explain/step1-no-index.txt
+results/explain/step1-no-index.json
+results/explain/step2-category-only.txt
+results/explain/step2-category-only.json
+results/explain/step3-created-at-only.txt
+results/explain/step3-created-at-only.json
+results/explain/step4-composite.txt
+results/explain/step4-composite.json
+results/explain/step5-reverse-composite.txt
+results/explain/step5-reverse-composite.json
+```
 
-### 9. k6 부하 테스트 스크립트
-위치: `test/load/index-test.js`
+**구현 참고사항:**
+- step0 실행 시: 각 DROP INDEX 문을 개별적으로 `2>/dev/null || true`와 함께 실행. 전체 .sql 파일을 파이프하지 말 것 (개별 에러 처리 필요)
+- MySQL CLI 명령어 형식: `mysql -h127.0.0.1 -P3306 -uroot -proot flashdeal`
+- 모든 명령어에 `2>/dev/null`로 MySQL 비밀번호 경고 억제
+- `mkdir -p`로 `results/explain/` 디렉토리 생성
+- 모든 step 완료 후 step0을 다시 실행하여 DB를 깨끗한 상태로 복원
+- 생성된 파일 목록 요약 출력
+
+### results/explain/ 디렉토리
+- `results/explain/.gitkeep` 생성 (git에서 디렉토리를 추적하도록)
+
+### .gitignore 추가 항목
+```
+# 측정 결과 (생성되는 파일, 추적하지 않음)
+results/explain/*.txt
+results/explain/*.json
+!results/explain/.gitkeep
+```
+
+### Step C 검증 (직접 수행)
+```
+- chmod +x scripts/measure/run-explain.sh
+- run-explain.sh 실행 → 에러 없이 완료
+- results/explain/에 파일 10개 생성 (txt 5개 + json 5개)
+- step1-no-index.txt: type=ALL, Extra에 "Using filesort" 포함
+- step4-composite.txt: type=ref, filesort 없음
+- step5-reverse-composite.txt: step4와 다른 결과
+- git status에서 results 파일 미표시 (gitignore 동작 확인)
+```
+
+### Step C 커밋
+검증 통과 후 `/commit`으로 커밋
+
+---
+
+## Step D: k6 부하 테스트 스크립트 + 자동화
+
+### test/load/index-test.js
+
+상품 목록 API를 대상으로 하는 k6 스크립트.
 
 ```javascript
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
 export const options = {
-    scenarios: {
-        constant_load: {
-            executor: 'constant-vus',
-            vus: 10,
-            duration: '30s',
-        },
-    },
+    vus: 10,
+    duration: '30s',
 };
 
-const CATEGORIES = ['전자기기', '의류', '식품', '도서', '스포츠'];
-
 export default function () {
-    const category = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
-    const page = Math.floor(Math.random() * 10);
-
-    const res = http.get(
-        `http://localhost:8080/api/v1/products?category=${encodeURIComponent(category)}&page=${page}&size=20`
-    );
-
+    const res = http.get('http://localhost:8080/api/v1/products?category=전자기기&page=0&size=20');
     check(res, {
         'status is 200': (r) => r.status === 200,
     });
-
-    sleep(0.5);
+    sleep(0.1);
 }
 ```
 
-### 10. k6 결과 저장 스크립트
-위치: `scripts/measure/run-k6.sh`
+### scripts/measure/run-k6.sh
 
-이 스크립트는 각 인덱스 단계별로 step0 초기화 → 인덱스 적용 → k6 실행 → 결과 JSON 저장을 자동화한다.
+각 인덱스 step별로 k6를 실행하고 결과를 저장하는 자동화 스크립트.
 
-**동작:**
-1. `results/k6/` 디렉토리 생성
-2. 서버 헬스체크 (localhost:8080 응답 대기)
-3. 각 step(1~5)에 대해:
-   - step0-drop-all.sql 실행 (인덱스 초기화)
-   - stepN 인덱스 SQL 실행
-   - `k6 run test/load/index-test.js --summary-export=results/k6/stepN-{name}.json` 실행
-4. 완료 메시지 출력
-
-**전제 조건:**
-- Spring Boot 서버가 기동 중이어야 한다 (스크립트가 확인함).
-- k6가 설치되어 있어야 한다.
-
-**결과 파일 구조:**
+**로직:**
 ```
-results/k6/
-├── step1-no-index.json
-├── step2-category-only.json
-├── step3-created-at-only.json
-├── step4-composite.json
-└── step5-reverse-composite.json
+각 step (1~5)에 대해:
+  1. step0-drop-all.sql 실행 (리셋 — 개별 DROP에 || true)
+  2. stepN SQL 실행 (인덱스 적용)
+  3. 실행: k6 run test/load/index-test.js --summary-export=results/k6/stepN-{이름}.json
+  4. step 간 짧은 대기
 ```
 
-**주의:**
-- run-explain.sh와 달리 서버가 떠있어야 하므로 별도 스크립트로 분리한다.
-- 스크립트에 실행 권한을 부여한다: `chmod +x scripts/measure/run-k6.sh`
+**출력 파일:**
+```
+results/k6/step1-no-index.json
+results/k6/step2-category-only.json
+results/k6/step3-created-at-only.json
+results/k6/step4-composite.json
+results/k6/step5-reverse-composite.json
+```
 
-### 11. results 디렉토리
-- `results/explain/.gitkeep` 파일을 생성하여 디렉토리를 Git에 포함시킨다.
-- `results/k6/.gitkeep` 파일을 생성하여 디렉토리를 Git에 포함시킨다.
-- `.gitignore`에 아래 규칙을 추가하여 실제 측정 결과는 커밋하지 않는다:
-  - `results/explain/*.txt`
-  - `results/explain/*.json`
-  - `results/k6/*.json`
+**구현 참고사항:**
+- `mkdir -p`로 `results/k6/` 디렉토리 생성
+- `results/k6/.gitkeep` 생성
+- 스크립트 실행 전 서버 구동 확인 필수. 시작 시 헬스 체크 추가:
+  ```bash
+  curl -sf http://localhost:8080/api/poc/health > /dev/null || { echo "서버 미실행. ./gradlew bootRun으로 시작하세요"; exit 1; }
+  ```
+- 모든 step 완료 후 step0 실행하여 DB를 깨끗한 상태로 복원
+- 생성된 파일 목록 요약 출력
 
-## 작업 순서 및 커밋 계획
+### .gitignore 추가 항목 (기존에 추가)
+```
+results/k6/*.json
+!results/k6/.gitkeep
+```
 
-각 단계 완료 후 커밋하고, 사용자에게 점검을 요청한다.
+### Step D 검증 (직접 수행)
+```
+- k6 version 동작 확인
+- 서버 실행 상태에서 k6 run test/load/index-test.js 완료
+- k6 출력에 http_req_duration, checks 항목 표시
+- chmod +x scripts/measure/run-k6.sh
+- run-k6.sh 실행 → results/k6/에 json 5개 생성
+- step1 vs step4 json: http_req_duration에서 측정 가능한 차이 존재
+```
 
-### Step A: 기능 구현
-작업:
-- ProductListResponse DTO 생성
-- ProductRepository에 조회 메서드 추가
-- ProductService 생성
-- ProductController 생성
+### Step D 커밋
+검증 통과 후 `/commit`으로 커밋
 
-커밋 후 점검:
-- `./gradlew bootRun` 후 `GET /api/v1/products?category=전자기기&page=0&size=20` 정상 응답 확인
+---
 
-### Step B: 인덱스 SQL 스크립트
-작업:
-- `scripts/index/` 에 step0~step5 총 6개 파일 생성
+## Phase 3-1 최종 디렉토리 구조
+```
+scripts/
+├── index/
+│   ├── step0-drop-all.sql
+│   ├── step1-no-index.sql
+│   ├── step2-category-only.sql
+│   ├── step3-created-at-only.sql
+│   ├── step4-composite.sql
+│   └── step5-reverse-composite.sql
+└── measure/
+    ├── run-explain.sh
+    └── run-k6.sh
 
-커밋 후 점검:
-- 파일 6개 존재 확인
-- step0 → step4 순서로 수동 실행 테스트 (선택)
+test/
+└── load/
+    └── index-test.js
 
-### Step C: 측정 자동화 + results 디렉토리
-작업:
-- `results/explain/.gitkeep`, `results/k6/.gitkeep` 생성
-- `.gitignore`에 측정 결과 제외 규칙 추가
-- `scripts/measure/run-explain.sh` 생성
+results/
+├── explain/
+│   └── .gitkeep
+└── k6/
+    └── .gitkeep
 
-커밋 후 점검:
-- `run-explain.sh` 실행 시 `results/explain/` 에 10개 파일 생성 확인
+src/main/java/com/project/
+├── api/product/
+│   ├── ProductController.java
+│   └── dto/
+│       └── ProductListResponse.java
+└── service/product/
+    └── ProductService.java
+```
 
-### Step D: k6 스크립트
-작업:
-- `test/load/index-test.js` 생성
-- `scripts/measure/run-k6.sh` 생성
+## 작업 순서
+순차적으로 완료한다. **각 step 완료 후 반드시 정지**하여 직접 검증 후 커밋한다.
 
-커밋 후 점검:
-- 서버 기동 상태에서 `run-k6.sh` 실행 시 `results/k6/` 에 5개 파일 생성 확인
-- Phase 2에서 `ddl-auto: validate`로 변경되어 있어야 한다. `create`이면 서버 재시작 시 인덱스가 사라진다.
-- 인덱스 실험 시 반드시 step0으로 초기화한 뒤 원하는 step만 적용한다. 인덱스가 중복 적용되면 결과가 오염된다.
-- k6 실행 전 서버가 기동 중이어야 한다.
-- Product 10만 건 데이터가 없으면 EXPLAIN 결과가 의미 없다. Phase 2의 generate-test-data.sh를 먼저 실행한다.
+1. **Step A**: API 구현 (Controller, Service, DTO, Repository 메서드)
+   → 정지 → 직접 API 검증 → `/commit`
+2. **Step B**: 인덱스 SQL 스크립트 (scripts/index/에 6개 파일)
+   → 정지 → 직접 인덱스 생성/삭제 검증 → `/commit`
+3. **Step C**: EXPLAIN 자동화 (run-explain.sh + results 디렉토리 + .gitignore)
+   → 정지 → 직접 스크립트 실행 및 결과 검증 → `/commit`
+4. **Step D**: k6 스크립트 (index-test.js + run-k6.sh + results 디렉토리 + .gitignore)
+   → 정지 → 직접 스크립트 실행 및 결과 검증 → `/commit`
 
-## 완료 조건
-- [ ] `GET /api/v1/products?category=전자기기&page=0&size=20` 정상 응답
-- [ ] 응답 형태: Page JSON (content, totalElements, totalPages 등 포함)
-- [ ] `scripts/index/` 에 step0~step5 SQL 파일 6개 존재
-- [ ] `scripts/measure/run-explain.sh` 실행 시 `results/explain/` 에 10개 파일 생성
-- [ ] `scripts/measure/run-k6.sh` 실행 시 `results/k6/` 에 5개 파일 생성
-- [ ] `test/load/index-test.js` k6 스크립트 존재
-- [ ] `.gitignore`에 results 측정 파일 제외 규칙 추가
+모든 step 커밋 후 `/pr`로 PR 생성 또는 직접 생성.
+
+## Claude Code 범위 밖 (직접 수행)
+- 각 검증 직접 실행
+- run-explain.sh 실행 후 EXPLAIN 결과 해석 (type, key, rows, Extra 분석)
+- run-k6.sh 실행 후 before/after 지표 비교
+- `docs/01-index-optimization.md` 트러블슈팅 문서 작성
+- PR을 main에 머지
