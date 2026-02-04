@@ -49,3 +49,7 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# PoC result files
+poc/mysql-explain/results/
+poc/k6-basic/test-result.json
