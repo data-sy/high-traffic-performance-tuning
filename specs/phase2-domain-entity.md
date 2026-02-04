@@ -15,14 +15,12 @@ ERD를 기반으로 JPA 엔티티와 Repository를 생성하고, 테스트 데�
 - 모든 엔티티의 PK는 `@GeneratedValue(strategy = GenerationType.IDENTITY)`를 사용한다.
 - MySQL의 AUTO_INCREMENT와 매핑되며, 다른 전략(TABLE, SEQUENCE)은 사용하지 않는다.
 
-### before/after API 분리 구조
-Phase 3에서 각 시나리오는 최적화 전/후를 별도 API로 분리하여 동시에 비교 가능하게 한다.
-예시:
-- `GET /api/v1/products` — 인덱스 없이 조회 (before)
-- `GET /api/v2/products` — 복합 인덱스 적용 조회 (after)
+### Phase 3 API 구조
+Phase 3에서 각 시나리오의 API를 구현한다. 시나리오 특성에 따라 API 구조가 다르다:
+- **인덱스 최적화 (Phase 3-1)**: API 1개. 쿼리는 동일하고 DB 인덱스만 변경하므로 컨트롤러를 분리하지 않는다. 인덱스 교체는 SQL 스크립트로 제어한다.
+- **N+1, 동시성 등 다른 시나리오**: 시나리오별로 결정한다.
 
 Phase 2에서는 엔티티와 Repository만 생성하고, API는 Phase 3에서 구현한다.
-엔티티 설계 시 before/after 양쪽에서 모두 사용 가능하도록 범용적으로 설계한다.
 
 ## ERD
 ```
