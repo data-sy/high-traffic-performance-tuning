@@ -14,7 +14,7 @@ Implement product list API with category filtering + pagination, then create ind
 - Read `CLAUDE.md` first for project conventions.
 - Do NOT create v1~v4 separate controllers. This scenario uses a **single controller + single service**. The before/after difference comes from which **index SQL script** is applied, not from code changes.
 - Do NOT use `set -e` in any shell scripts. Some commands intentionally fail (e.g., DROP INDEX on non-existent index).
-- MySQL credentials are hardcoded: `root/root`, database `flashdeal`, host `127.0.0.1`, port `3306`. Do NOT parameterize.
+- MySQL runs in Docker. Access via shell function: run_mysql() { docker exec -i docker-mysql-1 mysql -uroot -proot flashdeal "$@"; }. Define this at the top of each shell script. Do NOT use mysql -h127.0.0.1 directly.
 - All `.sh` files must have executable permission (`chmod +x`).
 
 ---
@@ -174,7 +174,9 @@ results/explain/step5-reverse-composite.json
 
 **Implementation notes:**
 - For step0 execution: run each DROP INDEX statement individually with `2>/dev/null || true`, do NOT pipe the entire .sql file (individual error handling is needed).
-- MySQL CLI command format: `mysql -h127.0.0.1 -P3306 -uroot -proot flashdeal`
+- MySQL access: define a shell function at the top of each script:
+run_mysql() { docker exec -i docker-mysql-1 mysql -uroot -proot flashdeal "$@"; }
+Use run_mysql for all MySQL commands.
 - Suppress MySQL password warning with `2>/dev/null` on all commands.
 - Create `results/explain/` directory with `mkdir -p`.
 - After all steps complete, run step0 again to leave DB in clean state.
@@ -262,6 +264,7 @@ results/k6/step5-reverse-composite.json
   ```
 - After all steps, run step0 to leave DB clean.
 - Print summary of generated files.
+- MySQL access: use the same run_mysql() shell function defined at the top of the script (see Important Rules)
 
 ### .gitignore additions (append to existing)
 ```

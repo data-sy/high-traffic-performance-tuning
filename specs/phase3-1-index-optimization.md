@@ -14,7 +14,7 @@
 - 먼저 `CLAUDE.md`를 읽고 프로젝트 컨벤션을 확인할 것
 - v1~v4 별도 컨트롤러를 만들지 말 것. 이 시나리오는 **단일 컨트롤러 + 단일 서비스**를 사용한다. before/after 차이는 코드가 아닌 **인덱스 SQL 스크립트** 적용 여부로 발생한다
 - 셸 스크립트에 `set -e`를 사용하지 말 것. 일부 명령어는 의도적으로 실패한다 (예: 존재하지 않는 인덱스에 DROP INDEX)
-- MySQL 자격증명은 하드코딩: `root/root`, 데이터베이스 `flashdeal`, 호스트 `127.0.0.1`, 포트 `3306`. 파라미터화 금지
+- MySQL은 Docker 컨테이너에서 실행. 셸 함수로 접근: run_mysql() { docker exec -i docker-mysql-1 mysql -uroot -proot flashdeal "$@"; }. 각 셸 스크립트 상단에 정의할 것. mysql -h127.0.0.1 직접 사용 금지
 - 모든 `.sh` 파일은 실행 권한 필수 (`chmod +x`)
 
 ---
@@ -174,7 +174,7 @@ results/explain/step5-reverse-composite.json
 
 **구현 참고사항:**
 - step0 실행 시: 각 DROP INDEX 문을 개별적으로 `2>/dev/null || true`와 함께 실행. 전체 .sql 파일을 파이프하지 말 것 (개별 에러 처리 필요)
-- MySQL CLI 명령어 형식: `mysql -h127.0.0.1 -P3306 -uroot -proot flashdeal`
+- MySQL 접근: 각 스크립트 상단에 셸 함수 정의: run_mysql() { docker exec -i docker-mysql-1 mysql -uroot -proot flashdeal "$@"; }. 모든 MySQL 명령어에 run_mysql 사용
 - 모든 명령어에 `2>/dev/null`로 MySQL 비밀번호 경고 억제
 - `mkdir -p`로 `results/explain/` 디렉토리 생성
 - 모든 step 완료 후 step0을 다시 실행하여 DB를 깨끗한 상태로 복원
@@ -262,6 +262,7 @@ results/k6/step5-reverse-composite.json
   ```
 - 모든 step 완료 후 step0 실행하여 DB를 깨끗한 상태로 복원
 - 생성된 파일 목록 요약 출력
+- MySQL 접근: 스크립트 상단에 정의한 run_mysql() 셸 함수 사용 (중요 규칙 참조)
 
 ### .gitignore 추가 항목 (기존에 추가)
 ```
