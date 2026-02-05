@@ -53,3 +53,8 @@ Thumbs.db
 # PoC result files
 poc/mysql-explain/results/
 poc/k6-basic/test-result.json
+
+# Measurement results (generated, not tracked)
+results/explain/*.txt
+results/explain/*.json
+!results/explain/.gitkeep
