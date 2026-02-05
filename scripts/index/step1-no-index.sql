@@ -1,0 +1,4 @@
+-- Step 1: No index (baseline)
+-- This file is intentionally empty.
+-- After step0-drop-all.sql removes all indexes, this state represents the baseline.
+-- Exists for documentation and symmetry with other steps.
