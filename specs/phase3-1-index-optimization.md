@@ -180,17 +180,6 @@ results/explain/step5-reverse-composite.json
 - 모든 step 완료 후 step0을 다시 실행하여 DB를 깨끗한 상태로 복원
 - 생성된 파일 목록 요약 출력
 
-### results/explain/ 디렉토리
-- `results/explain/.gitkeep` 생성 (git에서 디렉토리를 추적하도록)
-
-### .gitignore 추가 항목
-```
-# 측정 결과 (생성되는 파일, 추적하지 않음)
-results/explain/*.txt
-results/explain/*.json
-!results/explain/.gitkeep
-```
-
 ### Step C 검증 (직접 수행)
 ```
 - chmod +x scripts/measure/run-explain.sh
@@ -199,7 +188,6 @@ results/explain/*.json
 - step1-no-index.txt: type=ALL, Extra에 "Using filesort" 포함
 - step4-composite.txt: type=ref, filesort 없음
 - step5-reverse-composite.txt: step4와 다른 결과
-- git status에서 results 파일 미표시 (gitignore 동작 확인)
 ```
 
 ### Step C 커밋
@@ -255,7 +243,6 @@ results/k6/step5-reverse-composite.json
 
 **구현 참고사항:**
 - `mkdir -p`로 `results/k6/` 디렉토리 생성
-- `results/k6/.gitkeep` 생성
 - 스크립트 실행 전 서버 구동 확인 필수. 시작 시 헬스 체크 추가:
   ```bash
   curl -sf http://localhost:8080/api/poc/health > /dev/null || { echo "서버 미실행. ./gradlew bootRun으로 시작하세요"; exit 1; }
@@ -263,12 +250,6 @@ results/k6/step5-reverse-composite.json
 - 모든 step 완료 후 step0 실행하여 DB를 깨끗한 상태로 복원
 - 생성된 파일 목록 요약 출력
 - MySQL 접근: 스크립트 상단에 정의한 run_mysql() 셸 함수 사용 (중요 규칙 참조)
-
-### .gitignore 추가 항목 (기존에 추가)
-```
-results/k6/*.json
-!results/k6/.gitkeep
-```
 
 ### Step D 검증 (직접 수행)
 ```
@@ -305,9 +286,12 @@ test/
 
 results/
 ├── explain/
-│   └── .gitkeep
-└── k6/
-    └── .gitkeep
+│   ├── step1-no-index.txt
+│   ├── step1-no-index.json
+│   └── ...
+├── k6/
+│   └── (generated after run-k6.sh)
+└── environment.md
 
 src/main/java/com/project/
 ├── api/product/
@@ -325,9 +309,9 @@ src/main/java/com/project/
    → 정지 → 직접 API 검증 → `/commit`
 2. **Step B**: 인덱스 SQL 스크립트 (scripts/index/에 6개 파일)
    → 정지 → 직접 인덱스 생성/삭제 검증 → `/commit`
-3. **Step C**: EXPLAIN 자동화 (run-explain.sh + results 디렉토리 + .gitignore)
+3. **Step C**: EXPLAIN 자동화 (run-explain.sh + results 디렉토리)
    → 정지 → 직접 스크립트 실행 및 결과 검증 → `/commit`
-4. **Step D**: k6 스크립트 (index-test.js + run-k6.sh + results 디렉토리 + .gitignore)
+4. **Step D**: k6 스크립트 (index-test.js + run-k6.sh + environment.md)
    → 정지 → 직접 스크립트 실행 및 결과 검증 → `/commit`
 
 모든 step 커밋 후 `/pr`로 PR 생성 또는 직접 생성.

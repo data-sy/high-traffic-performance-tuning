@@ -182,17 +182,6 @@ Use run_mysql for all MySQL commands.
 - After all steps complete, run step0 again to leave DB in clean state.
 - Print summary showing which files were generated.
 
-### results/explain/ directory
-- Create `results/explain/.gitkeep` so the directory is tracked by git.
-
-### .gitignore additions
-```
-# Measurement results (generated, not tracked)
-results/explain/*.txt
-results/explain/*.json
-!results/explain/.gitkeep
-```
-
 ### Step C Verification (human will verify)
 ```
 - chmod +x scripts/measure/run-explain.sh
@@ -201,7 +190,6 @@ results/explain/*.json
 - step1-no-index.txt: type=ALL, Extra contains "Using filesort"
 - step4-composite.txt: type=ref, no filesort
 - step5-reverse-composite.txt: different result from step4
-- git status shows no results files (gitignore works)
 ```
 
 ### Step C Commit
@@ -257,7 +245,6 @@ results/k6/step5-reverse-composite.json
 
 **Implementation notes:**
 - Create `results/k6/` directory with `mkdir -p`.
-- Create `results/k6/.gitkeep`.
 - Server must be running before this script executes. Add a health check at the start:
   ```bash
   curl -sf http://localhost:8080/api/poc/health > /dev/null || { echo "Server not running. Start with ./gradlew bootRun"; exit 1; }
@@ -265,12 +252,6 @@ results/k6/step5-reverse-composite.json
 - After all steps, run step0 to leave DB clean.
 - Print summary of generated files.
 - MySQL access: use the same run_mysql() shell function defined at the top of the script (see Important Rules)
-
-### .gitignore additions (append to existing)
-```
-results/k6/*.json
-!results/k6/.gitkeep
-```
 
 ### Step D Verification (human will verify)
 ```
@@ -307,9 +288,12 @@ test/
 
 results/
 ├── explain/
-│   └── .gitkeep
-└── k6/
-    └── .gitkeep
+│   ├── step1-no-index.txt
+│   ├── step1-no-index.json
+│   └── ...
+├── k6/
+│   └── (generated after run-k6.sh)
+└── environment.md
 
 src/main/java/com/project/
 ├── api/product/
@@ -327,9 +311,9 @@ Complete steps sequentially. **Pause after each step** for human verification be
    → Pause → Human verifies API → `/commit`
 2. **Step B**: Index SQL scripts (6 files in scripts/index/)
    → Pause → Human verifies index create/drop → `/commit`
-3. **Step C**: EXPLAIN automation (run-explain.sh + results directory + .gitignore)
+3. **Step C**: EXPLAIN automation (run-explain.sh + results directory)
    → Pause → Human runs script and verifies results → `/commit`
-4. **Step D**: k6 scripts (index-test.js + run-k6.sh + results directory + .gitignore)
+4. **Step D**: k6 scripts (index-test.js + run-k6.sh + environment.md)
    → Pause → Human runs script and verifies results → `/commit`
 
 After all steps committed, human will create PR manually or via `/pr`.
