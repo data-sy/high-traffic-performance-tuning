@@ -14,12 +14,12 @@ Create JPA entities and repositories based on ERD. Seed test data. End state: re
 ### ID Strategy
 All entities: `@GeneratedValue(strategy = GenerationType.IDENTITY)`. Maps to MySQL AUTO_INCREMENT. Do NOT use TABLE or SEQUENCE.
 
-### Before/After API Structure
-Phase 3 will implement separate before/after APIs for each scenario:
-- `GET /api/v1/products` — no index (before)
-- `GET /api/v2/products` — composite index (after)
+### Phase 3 API Structure
+Phase 3 implements APIs for each scenario. API structure varies by scenario:
+- **Index Optimization (Phase 3-1)**: Single API. Query is identical — only the DB index changes. Index switching is controlled by SQL scripts, NOT separate controllers.
+- **N+1, Concurrency, etc.**: Decided per scenario.
 
-Phase 2 only creates entities and repositories. APIs come in Phase 3. Design entities to be reusable for both v1 and v2.
+Phase 2 only creates entities and repositories. APIs come in Phase 3.
 
 ## ERD
 ```
