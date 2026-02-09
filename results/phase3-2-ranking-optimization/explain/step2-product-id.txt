@@ -1,0 +1,2 @@
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	oi	NULL	index	idx_orderitem_product_id	idx_orderitem_product_id	9	NULL	149940	100.00	Using temporary; Using filesort
