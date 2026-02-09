@@ -16,7 +16,7 @@ run_mysql() {
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 K6_SCRIPT="$PROJECT_ROOT/test/load/ranking-test.js"
-RESULT_DIR="$PROJECT_ROOT/results/k6"
+RESULT_DIR="$PROJECT_ROOT/results/phase3-2-ranking-optimization/k6"
 mkdir -p "$RESULT_DIR"
 
 echo "=========================================="
@@ -126,7 +126,7 @@ done
 echo ""
 echo "Result files:"
 for version in "${versions[@]}"; do
-    echo "  results/k6/phase3-2-${version}.json"
+    echo "  results/phase3-2-ranking-optimization/k6/phase3-2-${version}.json"
 done
 echo ""
 
