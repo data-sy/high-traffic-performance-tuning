@@ -4,6 +4,7 @@ import com.project.api.ranking.dto.RankingResponse;
 import com.project.service.ranking.RankingV1Service;
 import com.project.service.ranking.RankingV2Service;
 import com.project.service.ranking.RankingV3Service;
+import com.project.service.ranking.RankingV4Service;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,13 +16,16 @@ public class RankingController {
     private final RankingV1Service v1Service;
     private final RankingV2Service v2Service;
     private final RankingV3Service v3Service;
+    private final RankingV4Service v4Service;
 
     public RankingController(RankingV1Service v1Service,
                              RankingV2Service v2Service,
-                             RankingV3Service v3Service) {
+                             RankingV3Service v3Service,
+                             RankingV4Service v4Service) {
         this.v1Service = v1Service;
         this.v2Service = v2Service;
         this.v3Service = v3Service;
+        this.v4Service = v4Service;
     }
 
     @GetMapping("/v1/rankings")
@@ -41,6 +45,6 @@ public class RankingController {
 
     @GetMapping("/v4/rankings")
     public RankingResponse getV4Rankings() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return v4Service.getRankings();
     }
 }
