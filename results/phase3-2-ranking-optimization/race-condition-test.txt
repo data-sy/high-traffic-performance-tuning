@@ -1,0 +1,23 @@
+=== Step C-2: Race Condition Test Results ===
+Date: 2026-02-09T17:29:13.183008
+Test: RankingRaceConditionTest.testStringCacheRaceCondition()
+Status: PASSED ✅
+
+======================================
+Race Condition Test Results (v3 String Cache)
+======================================
+Total threads: 100
+Expected DB queries: 1 (if cache was atomic)
+Actual DB queries: 100
+Lost Update occurred: YES
+======================================
+
+Analysis:
+- Root Cause: Redis String cache uses non-atomic GET/SET operations
+- Race Window: All 100 threads simultaneously saw null cache
+- Impact: 100 redundant DB queries instead of 1
+- Conclusion: v3 cannot handle concurrent cache misses safely
+
+Why This Matters:
+This test proves v3's structural limitation and justifies v4
+(Sorted Set with atomic ZINCRBY operations).

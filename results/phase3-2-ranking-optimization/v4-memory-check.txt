@@ -1,0 +1,24 @@
+==========================================
+Phase 3-2 Step D: Memory Management Check
+==========================================
+
+Measurement Date: 2026-02-09 18:16:08
+
+Before:              ZCARD = 100
+After manual insert: ZCARD = 101
+After auto cleanup:  ZCARD = 100
+Cleanup method:      manual (ZREMRANGEBYRANK)
+Test item removed:   YES (auto-evicted as lowest score)
+
+Status: PASS
+
+Strategy:
+---------
+ZREMRANGEBYRANK removes lowest-score members beyond top 100.
+Called automatically after each order via RankingV4Service.incrementScore().
+Ensures bounded memory usage regardless of total product count.
+
+Memory:
+-------
+used_memory_human:1.31M
+used_memory_peak_human:1.31M

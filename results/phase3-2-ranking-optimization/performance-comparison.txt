@@ -1,0 +1,41 @@
+========================================
+Phase 3-2 Performance Comparison Results
+========================================
+
+Measurement Date: 2026-02-09 16:12:52
+
+Performance Metrics:
+--------------------
+v1 (no index):       185ms
+v2 (covering index): 138ms
+
+Improvement:         25.4%
+Status:              PASS
+
+Index Details:
+--------------
+Index Name:   idx_orderitem_product_quantity
+Columns:      (product_id, quantity)
+Type:         Covering Index
+
+Query:
+------
+SELECT oi.product_id, SUM(oi.quantity) as sales_count
+FROM order_item oi
+GROUP BY oi.product_id
+ORDER BY sales_count DESC
+LIMIT 100
+
+Analysis:
+---------
+✅ The covering index significantly improved query performance.
+   - Eliminated table data access (Using index)
+   - Reduced I/O operations
+   - GROUP BY and aggregation performed on index only
+
+Notes:
+------
+- Covering index remains in database for further testing
+- To remove: DROP INDEX idx_orderitem_product_quantity ON order_item
+- Each measurement is average of 3 runs (excluding warmup)
+- Fast baseline time may indicate: warm cache, optimized JVM, or small working set in memory

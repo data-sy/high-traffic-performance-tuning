@@ -1,0 +1,4 @@
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+order_item	0	PRIMARY	1	id	A	149940	NULL	NULL		BTREE			YES	NULL
+order_item	1	FKt4dc2r9nbvbujrljv3e23iibt	1	order_id	A	48467	NULL	NULL	YES	BTREE			YES	NULL
+order_item	1	FK551losx9j75ss5d6bfsqvijna	1	product_id	A	79383	NULL	NULL	YES	BTREE			YES	NULL
