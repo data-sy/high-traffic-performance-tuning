@@ -53,3 +53,4 @@ Thumbs.db
 # PoC result files
 poc/mysql-explain/results/
 poc/k6-basic/test-result.json
+poc/redis-sortedset/test-results/
