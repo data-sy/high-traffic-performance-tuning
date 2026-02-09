@@ -32,7 +32,7 @@ Redis Sorted Set을 활용하여 실시간 랭킹 조회를 98% 개선 (200ms �
 - All Redis keys must use prefix `ranking:` or `cache:`.
 
 ### 1. Redis Configuration — `config/RedisConfig.java`
-- Location: `src/main/java/com/freshmarket/config/RedisConfig.java`
+- Location: `src/main/java/com/project/config/RedisConfig.java`
 - Create new file
 - Annotations: `@Configuration`, `@EnableRedisRepositories`
 - Beans:
@@ -42,7 +42,7 @@ Redis Sorted Set을 활용하여 실시간 랭킹 조회를 98% 개선 (200ms �
     - ValueSerializer: `GenericJackson2JsonRedisSerializer`
 
 ### 2. Redis Repository — `repository/RankingRedisRepository.java`
-- Location: `src/main/java/com/freshmarket/repository/RankingRedisRepository.java`
+- Location: `src/main/java/com/project/repository/RankingRedisRepository.java`
 - Create new file
 - Annotation: `@Repository`
 - Field: `RedisTemplate<String, Object> redisTemplate` (injected)
@@ -64,7 +64,7 @@ Redis Sorted Set을 활용하여 실시간 랭킹 조회를 98% 개선 (200ms �
   ```
 
 ### 3. DTO — `dto/ranking/RankingResponse.java`
-- Location: `src/main/java/com/freshmarket/dto/ranking/RankingResponse.java`
+- Location: `src/main/java/com/project/dto/ranking/RankingResponse.java`
 - Create new file (record)
 - Fields:
   ```java
@@ -73,7 +73,7 @@ Redis Sorted Set을 활용하여 실시간 랭킹 조회를 98% 개선 (200ms �
   ```
 
 ### 4. DTO — `dto/ranking/RankingItemResponse.java`
-- Location: `src/main/java/com/freshmarket/dto/ranking/RankingItemResponse.java`
+- Location: `src/main/java/com/project/dto/ranking/RankingItemResponse.java`
 - Create new file (record)
 - Fields:
   ```java
@@ -84,7 +84,7 @@ Redis Sorted Set을 활용하여 실시간 랭킹 조회를 98% 개선 (200ms �
   ```
 
 ### 5. Repository Query — `repository/OrderItemRepository.java`
-- Location: `src/main/java/com/freshmarket/repository/OrderItemRepository.java`
+- Location: `src/main/java/com/project/repository/OrderItemRepository.java`
 - Modify existing file
 - Add method:
   ```java
@@ -127,7 +127,7 @@ After verification passes, run `/commit` with staged files.
 - Controller → Service → Repository 순서 준수.
 
 ### 1. Controller — `api/ranking/RankingV1Controller.java`
-- Location: `src/main/java/com/freshmarket/api/ranking/RankingV1Controller.java`
+- Location: `src/main/java/com/project/api/ranking/RankingV1Controller.java`
 - Create new file
 - Annotations: `@RestController`, `@RequestMapping("/api/v1/rankings")`
 - Endpoint: `GET /api/v1/rankings`
@@ -135,7 +135,7 @@ After verification passes, run `/commit` with staged files.
   - Delegate to `RankingV1Service.getTopRankingsFromDB()`
 
 ### 2. Service — `service/ranking/RankingV1Service.java`
-- Location: `src/main/java/com/freshmarket/service/ranking/RankingV1Service.java`
+- Location: `src/main/java/com/project/service/ranking/RankingV1Service.java`
 - Create new file
 - Annotation: `@Service`
 - Dependencies: `OrderItemRepository`, `ProductRepository` (injected)
@@ -148,14 +148,14 @@ After verification passes, run `/commit` with staged files.
   - Return `new RankingResponse(rankings, LocalDateTime.now())`
 
 ### 3. Controller — `api/ranking/RankingV2Controller.java`
-- Location: `src/main/java/com/freshmarket/api/ranking/RankingV2Controller.java`
+- Location: `src/main/java/com/project/api/ranking/RankingV2Controller.java`
 - Create new file
 - Annotations: `@RestController`, `@RequestMapping("/api/v2/rankings")`
 - Endpoint: `GET /api/v2/rankings`
   - Delegate to `RankingV2Service.getTopRankingsWithIndex()`
 
 ### 4. Service — `service/ranking/RankingV2Service.java`
-- Location: `src/main/java/com/freshmarket/service/ranking/RankingV2Service.java`
+- Location: `src/main/java/com/project/service/ranking/RankingV2Service.java`
 - Create new file
 - **Identical logic to v1** (will run AFTER index creation)
 
@@ -251,14 +251,14 @@ After verification passes, run `/commit` with staged files.
 - Test must be in `test/race/` directory (not `test/java/`).
 
 ### 1. Controller — `api/ranking/RankingV3Controller.java`
-- Location: `src/main/java/com/freshmarket/api/ranking/RankingV3Controller.java`
+- Location: `src/main/java/com/project/api/ranking/RankingV3Controller.java`
 - Create new file
 - Annotations: `@RestController`, `@RequestMapping("/api/v3/rankings")`
 - Endpoint: `GET /api/v3/rankings`
   - Delegate to `RankingV3Service.getTopRankingsWithStringCache()`
 
 ### 2. Service — `service/ranking/RankingV3Service.java`
-- Location: `src/main/java/com/freshmarket/service/ranking/RankingV3Service.java`
+- Location: `src/main/java/com/project/service/ranking/RankingV3Service.java`
 - Create new file
 - Dependencies: `RankingRedisRepository`, `OrderItemRepository`, `ProductRepository`, `ObjectMapper` (injected)
 - Method: `RankingResponse getTopRankingsWithStringCache()`
@@ -271,55 +271,57 @@ After verification passes, run `/commit` with staged files.
   - 7. Return response
 
 ### 3. Race Condition Test — `test/race/RankingRaceConditionTest.java`
-- Location: `src/test/java/com/freshmarket/race/RankingRaceConditionTest.java`
+- Location: `src/test/java/com/project/race/RankingRaceConditionTest.java`
 - Create new file
-- Annotations: `@SpringBootTest`, `@Transactional`
-- Dependencies: `RankingRedisRepository`, `OrderItemRepository`, `ProductRepository`, `ObjectMapper` (injected)
+- Annotations: `@SpringBootTest` (no `@Transactional` — test needs true concurrent behavior without transaction isolation wrapping each thread)
+- Dependencies: `RankingV3Service`, `RankingRedisRepository` (injected)
 - Test Method: `testStringCacheRaceCondition()`
   - Given:
-    - Clear Redis cache
-    - Create 1 product with 100 order items (total quantity = 100)
+    - Clear Redis cache (`@BeforeEach`)
   - When:
-    - Create 2 threads with `CountDownLatch(2)`
-    - Each thread performs **non-atomic operation**:
+    - Create **100 threads** with `CountDownLatch(1)` (startLatch) + `CountDownLatch(100)` (doneLatch)
+    - **Why 100 threads**: Simulates realistic production burst load (e.g., flash sale start). More threads increase the probability of race window overlap, making the problem reproducible and measurable.
+    - Each thread checks cache state before calling service:
       ```java
-      // ⚠️ Race Window:
-      // read(cache) → compute(DB) → write(cache)
-      // 이 구간이 원자적이지 않아 Lost Update 발생
-      
-      String cached = redisRepository.getCachedRanking(); // T1, T2 동시 읽기
-      Thread.sleep(50); // DB 조회 시뮬레이션 (경쟁 상태 유도)
-      List<Object[]> results = orderItemRepository.findTopProductsBySales(100);
-      String json = toJson(results);
-      
-      // Thread name 로그로 race window 가시화
-      System.out.println(Thread.currentThread().getName() + " writing cache at " + System.currentTimeMillis());
-      redisRepository.cacheRanking(json); // T1, T2 순차 쓰기 → 덮어쓰기 발생
+      // ⚠️ Race Window: 100 threads simultaneously see null cache
+      String cachedBefore = rankingRedisRepository.getCachedRanking();
+      v3Service.getRankings(); // read → compute(DB) → write(cache)
+      if (cachedBefore == null) {
+          dbQueryCount.incrementAndGet();
+          System.out.println("[" + Thread.currentThread().getName() + "] "
+              + "Cache was empty, DB query triggered (count: " + count + ") at "
+              + System.currentTimeMillis());
+      }
       ```
-    - Start both threads simultaneously
+    - Start all threads simultaneously via `startLatch.countDown()`
     - Wait for completion
   - Then:
-    - Read final cache value
-    - Parse `salesCount`
-    - **Expected**: 100 (실제 주문량)
-    - **Actual**: 100 이하 (마지막 write가 먼저 write를 덮어씀)
-    - Print: `"Expected: 100, Actual: " + salesCount`
-    - **Assertion**: `assertThat(salesCount).isLessThan(100)` (race condition 재현 성공)
-    
+    - Count how many threads triggered DB queries
+    - **Expected**: 1 (if cache was atomic, only 1 thread should query DB)
+    - **Actual**: > 1 (multiple threads see null cache simultaneously → all query DB)
+    - Print summary: Total threads, Expected DB queries, Actual DB queries, Lost Update occurred
+    - **Assertion**: `assertTrue(actualDbQueries > 1)` (race condition 재현 성공)
+
+  - **v3의 한계 → v4 필요성 근거**:
+    - 이 테스트는 String 캐싱의 구조적 한계를 증명한다.
+    - read → compute → write가 원자적이지 않아, 동시 요청 시 불필요한 DB 쿼리가 발생한다.
+    - 이는 단순한 성능 문제가 아니라 캐시 정합성 문제이며, v4(Sorted Set)의 ZINCRBY 원자적 연산이 이를 해결한다.
+
   - Add comment in test:
     ```java
     /**
-     * 이 테스트는 성능 테스트가 아니라 **정합성 붕괴 재현 실험**이다.
-     * 
-     * String 캐싱의 문제:
-     * - "결과 전체를 캐싱"하므로 갱신 시 전체 재계산 필요
-     * - read → compute → write 구간이 원자적이지 않음
-     * - 동시 갱신 시 Lost Update 발생 (먼저 쓴 값이 사라짐)
-     * 
-     * 반면 Sorted Set(v4)은:
-     * - ZINCRBY가 원자적 연산
-     * - "구조 캐싱"이므로 증분 갱신만 수행
-     * - DB 접근 없이 Redis만으로 완결
+     * Race condition test for Redis String caching (v3).
+     * This test demonstrates a data integrity issue, NOT a performance issue.
+     *
+     * String caching problem:
+     * - Caches the "entire result" so full recomputation is needed on update
+     * - read → compute → write is NOT atomic
+     * - Concurrent updates cause Lost Update (earlier write is overwritten)
+     *
+     * In contrast, Sorted Set (v4):
+     * - ZINCRBY is an atomic operation
+     * - "Structure caching" so only incremental updates are needed
+     * - Completes within Redis alone, no DB access required
      */
     ```
 
@@ -338,11 +340,12 @@ curl http://localhost:8080/api/v3/rankings
 
 # 3. Race Condition 테스트 실행 (v3만)
 ./gradlew test --tests RankingRaceConditionTest.testStringCacheRaceCondition
-→ 콘솔 출력: "Expected: 100, Actual: < 100" (race condition 재현)
+→ 콘솔 출력: "Expected DB queries: 1, Actual DB queries: > 1" (race condition 재현)
+→ 100개 스레드 중 다수가 동시에 cache miss → DB 쿼리 중복 실행
 
 # 4. 테스트 결과 스크린샷 저장 (증거 확보)
 mkdir -p results/race-condition
-# Terminal output screenshot showing: Expected: 100, Actual: 85 (example)
+# Terminal output screenshot showing: Expected DB queries: 1, Actual: 15 (example)
 # Save as: results/race-condition/v3-lost-update-screenshot.png
 ```
 
@@ -361,14 +364,14 @@ After verification passes, run `/commit` with staged files.
 - `RankingInitializer` must run at application startup.
 
 ### 1. Controller — `api/ranking/RankingV4Controller.java`
-- Location: `src/main/java/com/freshmarket/api/ranking/RankingV4Controller.java`
+- Location: `src/main/java/com/project/api/ranking/RankingV4Controller.java`
 - Create new file
 - Annotations: `@RestController`, `@RequestMapping("/api/v4/rankings")`
 - Endpoint: `GET /api/v4/rankings`
   - Delegate to `RankingV4Service.getTopRankingsFromSortedSet()`
 
 ### 2. Service — `service/ranking/RankingV4Service.java`
-- Location: `src/main/java/com/freshmarket/service/ranking/RankingV4Service.java`
+- Location: `src/main/java/com/project/service/ranking/RankingV4Service.java`
 - Create new file
 - Dependencies: `RankingRedisRepository`, `ProductRepository` (injected)
 - Method: `RankingResponse getTopRankingsFromSortedSet()`
@@ -381,7 +384,7 @@ After verification passes, run `/commit` with staged files.
   - Return `new RankingResponse(rankings, LocalDateTime.now())`
 
 ### 3. Modify OrderService — `service/order/OrderService.java`
-- Location: `src/main/java/com/freshmarket/service/order/OrderService.java`
+- Location: `src/main/java/com/project/service/order/OrderService.java`
 - Modify existing method: `createOrder(CreateOrderRequest request)`
 - Add after order creation:
   ```java
@@ -400,7 +403,7 @@ After verification passes, run `/commit` with staged files.
   ```
 
 ### 4. Initializer — `initializer/RankingInitializer.java`
-- Location: `src/main/java/com/freshmarket/initializer/RankingInitializer.java`
+- Location: `src/main/java/com/project/initializer/RankingInitializer.java`
 - Create new file
 - Annotations: `@Component`
 - Implements: `ApplicationRunner`
@@ -413,7 +416,7 @@ After verification passes, run `/commit` with staged files.
   - Log: `"✅ Ranking initialized: " + count + " products"`
 
 ### 5. Recovery Service (주석 포함) — `service/ranking/RankingRecoveryService.java`
-- Location: `src/main/java/com/freshmarket/service/ranking/RankingRecoveryService.java`
+- Location: `src/main/java/com/project/service/ranking/RankingRecoveryService.java`
 - Create new file
 - Annotation: `@Service`
 - Dependencies: `OrderItemRepository`, `RankingRedisRepository`, `RedisTemplate` (injected)
@@ -466,8 +469,15 @@ run_redis ZSCORE ranking:products "1"
 
 # 4. Race Condition 테스트 (v3 vs v4 대조)
 ./gradlew test --tests RankingRaceConditionTest
-→ testStringCacheRaceCondition: "Expected: 100, Actual: < 100" (v3 실패)
-→ testSortedSetRaceCondition: "Expected: 100, Actual: 100" (v4 성공)
+
+# v3 vs v4 비교 결과:
+# | 항목            | v3 (String Cache)                    | v4 (Sorted Set)                |
+# |-----------------|--------------------------------------|--------------------------------|
+# | 동시 요청 처리  | 다수 스레드가 DB 중복 쿼리           | ZINCRBY 원자적 연산으로 완결   |
+# | DB 쿼리 횟수    | >1 (예: 15/100 스레드)               | 0 (Redis만으로 조회)           |
+# | 캐시 정합성     | Lost Update 발생                     | 항상 일관된 결과               |
+→ testStringCacheRaceCondition: "Expected DB queries: 1, Actual: > 1" (v3 — race condition 재현)
+→ testSortedSetRaceCondition: Sorted Set은 DB 조회 없이 ZINCRBY로 완결 (v4 성공)
 
 # 5. v4 테스트 결과 스크린샷 저장 (증거 확보)
 # Terminal output screenshot showing both test results
@@ -666,7 +676,7 @@ high-traffic-performance-tuning/
 │   │   └── v4-atomic-success-screenshot.png
 │   └── environment.md
 ├── src/
-│   ├── main/java/com/freshmarket/
+│   ├── main/java/com/project/
 │   │   ├── config/
 │   │   │   └── RedisConfig.java
 │   │   ├── repository/
@@ -690,7 +700,7 @@ high-traffic-performance-tuning/
 │   │   │   └── OrderService.java (modified)
 │   │   └── initializer/
 │   │       └── RankingInitializer.java
-│   └── test/java/com/freshmarket/race/
+│   └── test/java/com/project/race/
 │       └── RankingRaceConditionTest.java
 └── docs/
     └── 02-ranking-redis-sortedset.md (human task)
@@ -731,9 +741,9 @@ After all steps committed, human will create PR manually or via `/pr`.
 - Execute `ranking-experiments.sql` and interpret EXPLAIN results
 - Execute `k6 run ranking-test.js` and compare v1~v4 metrics (p50, p95, p99)
   - **중요**: 쓰기 부하 병행 시 v4의 p99 안정성 확인
-- Run `RankingRaceConditionTest` twice:
-  - v3: Lost Update 발생 확인 (Expected: 100, Actual: 100 이하)
-  - v4: 원자적 연산으로 정합성 유지 (Expected: 100, Actual: 100)
+- Run `RankingRaceConditionTest`:
+  - v3 (`testStringCacheRaceCondition`): 100개 스레드 중 다수가 동시 cache miss → DB 쿼리 중복 실행 (Expected: 1, Actual: >1)
+  - v4 (`testSortedSetRaceCondition`): Sorted Set의 ZINCRBY 원자적 연산으로 DB 조회 없이 완결
 - Execute `ranking-memory-check.sh` and verify ZCARD ≤ 100
 - Write `docs/02-ranking-redis-sortedset.md` troubleshooting document:
   - **핵심 인사이트 (최우선 기술)**:
