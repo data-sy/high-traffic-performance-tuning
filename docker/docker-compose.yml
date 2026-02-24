@@ -15,6 +15,24 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'  # command 사용하면 기본 CMD가 사라지므로 명시적으로 지정
+      - '--web.enable-remote-write-receiver'             # k6에서 메트릭을 push하기 위해 필수
+      - '--storage.tsdb.retention.time=15d' # 데이터 15일간 보관
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
 
 volumes:
   mysql-data:
+  grafana-storage:
