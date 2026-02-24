@@ -69,9 +69,12 @@ for step in "${STEPS[@]}"; do
         echo "Baseline (no index to apply)"
     fi
 
-    # 3. Run k6 and save result
+    # 3. Run k6 and save result (+ send metrics to Prometheus for Grafana)
     echo "Running k6 load test..."
-    k6 run "$K6_SCRIPT" --summary-export="$RESULTS_DIR/step${step_num}-${step_name}.json" 2>&1 | tail -20
+    K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9090/api/v1/write \
+    k6 run --out experimental-prometheus-rw \
+      --summary-export="$RESULTS_DIR/step${step_num}-${step_name}.json" \
+      "$K6_SCRIPT" 2>&1 | tail -20
 
     echo "Saved: step${step_num}-${step_name}.json"
     echo ""
