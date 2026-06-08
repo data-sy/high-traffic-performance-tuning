@@ -4,6 +4,9 @@ spring:
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10        # control pin — phase3-3, do not remove (v3 풀 고갈 분석 대상, over-provision 금지)
+      connection-timeout: 30000    # control pin — phase3-3, do not remove (ms; F1 통제변수, innodb 50s와 대소관계 고정)
   jpa:
     hibernate:
       ddl-auto: validate
@@ -14,6 +17,11 @@ spring:
     redis:
       host: localhost
       port: 6379
+
+server:
+  tomcat:
+    threads:
+      max: 200                     # control pin — phase3-3, do not remove (HTTP 계층 잡음 중화)
 
 management:
   endpoints:

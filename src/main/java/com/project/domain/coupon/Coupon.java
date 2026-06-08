@@ -44,4 +44,15 @@ public class Coupon {
         this.totalQuantity = totalQuantity;
         this.issued = 0;
     }
+
+    /**
+     * 발급 카운터 증가. 한도 소진이면 {@link CouponSoldOutException}.
+     * 이것은 락이 아니다 — check-then-act의 원자성(동시성)은 Service 전략의 책임이다.
+     */
+    public void issue() {
+        if (this.issued >= this.totalQuantity) {
+            throw new CouponSoldOutException(this.id);
+        }
+        this.issued++;
+    }
 }
