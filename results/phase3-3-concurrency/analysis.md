@@ -188,19 +188,41 @@
 ## v5 — Redis 분산 락 (커스텀 SET NX + Lua)  ★ 최종
 
 ### 구현 요지
-- v4와 동형 파사드, **고정 TTL 30s 무갱신**, `StringRedisTemplate` 단일(직렬화 일치), Lua compare-and-delete.
+- `CouponIssueServiceV5`(v4와 동형 파사드, 락 ⊃ tx): `RedisLockRepository.tryLock`(SET NX PX, **고정 TTL 30s 무갱신**)
+  → 실패 시 503 ⓒ → 별도 빈 inner @Transactional → finally `unlock`(Lua compare-del).
+- **★ 직렬화 함정 회피**: 락 전용 `StringRedisTemplate`(String serializer). 기본 RedisTemplate의 JSON value면 토큰에
+  따옴표가 붙어 Lua raw 비교가 조용히 항상 실패 → release 불가 → 매 요청 TTL까지 점유. 스모크로 검증(2연속 발급
+  즉시 200 = 매번 해제됨; 함정이면 1번째 락이 30s 잔존해 2번째 503).
+- v4와 **비동형**(v4 워치독 vs v5 고정TTL) — Step G 갱신 축.
 
 ### 결과
 | 축 | 지표 | v5 |
 |----|------|-----|
-| 정확성 | total/counter/actual | — / — / — |
-| 성능 | 성공 throughput | — |
-| 성능 | 성공(200) p95 / p99 | — |
-| 성능 | 503율 / ⓐ/ⓑ/ⓒ | — |
+| 정확성 | total/counter/actual | 100 / 100 / **100** → **PASS** ✓ (초과 0) |
+| 정확성 | 성공200 / 한도409 / other | 100 / 549 / 0 |
+| 성능 | 성공 throughput | **28.4/s** (852건/30s) |
+| 성능 | 성공(200) p95 / p99 | **106.2ms / 144.9ms** |
+| 성능 | 락거절(503) p95 / p99 | 66.4ms / 83.3ms |
+| 성능 | 503율 / ⓐ/ⓑ/**ⓒ** | **99.7%** / 0 / 0 / **281,977** (미분류 0) |
 
 ### 해석 / 학습 노트
-- v4와 정합성 일치(초과 0). ⚠️ v4↔v5 비동형(워치독 vs 고정TTL) — 성능 차이를 "락 메커니즘"으로만 읽지 말 것.
-- (선택) ★스톨 데모: ttl<stall 인위 주입 → 두 홀더 동시 점유 → 초과(통제 산물, 정상 v5는 초과 0) = fencing 영역.
+- **정합 PASS(초과 0)**: v5 정확성 actual=100(10s에 충전 완료 — v4 62와 달리 한도 도달, 단 이는 아래 ⚠️ 참조).
+  503 전부 ⓒ(미분류 0) — v4와 함께 분류 코드 실주행 재확인.
+- **⚠️ v4↔v5 throughput 차이를 갱신 정책 인과로 읽지 말 것 (발견8 — 정상 부하 격리 불가)**: v5(28.4/s, p95 106ms) >
+  v4(6.3/s, p95 418ms)이지만, 이 차이는 **갱신 정책(워치독 vs 고정TTL)이 아니라 대기/락 구현 아티팩트**다 —
+  Redisson(pub/sub 대기 + 워치독 갱신 스케줄링 오버헤드) vs 커스텀 경량 SET NX. hold(수 ms) ≪ TTL이라 고정TTL이
+  임계영역 중간 만료될 일이 없어 **갱신 정책이 정상 부하 throughput엔 안 드러난다**. 즉 v5>v4는 **관측·미증명**,
+  "고정TTL이 빠르다"로 읽으면 틀림. 갱신 축의 진짜 효과는 ↓ 스톨 데모(hold>TTL)로만 드러남.
+
+### ★ 스톨 데모 — fencing 부재 실증 (정규 측정 아님, 수동·타이밍 의존)
+- 통제: `total_qty=1`, `ttl=1s < stall=3s`, 순차 트리거(A 스톨 중 A의 TTL 만료 → B가 만료된 락 훔쳐 진입). 별도 reset·격리.
+- 결과: **A `released=false`**(compare-del이 자기 토큰 아님 보고 **해제 거부 = 오해제 차단 ✓**), B `released=true`.
+  그럼에도 **actual=2 > total=1**(user 9001·9002 둘 다 발급) = **동시 점유 발생 ✗**.
+- **결정적 증거**: 안전한 release(오해제 차단)와 상호배제(동시 점유 차단)는 **별개**다. compare-del은 전자만 주고,
+  만료-중간탈취로 인한 후자는 **fencing token(자원 측 단조번호 검증) 없이는 어느 분산 락도 못 막는다**(v4 워치독도
+  GC pause/네트워크 단절엔 동일 한계). 이 초과는 **데모의 통제 산물 — 정상 v5는 초과 0**(위 정확성 PASS).
+- → 시리즈 결론의 유일한 구체 증거: "Redisson/커스텀이 준 건 워치독·안전 release뿐, fencing은 어느 쪽도 못 준다"
+  → §6 프로덕션 v3 선택 근거(분산 락이 v3 대비 더해주는 정합은 *범위*가 아니라 비-DB 임계영역 보호뿐).
 
 ---
 
