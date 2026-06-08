@@ -74,19 +74,30 @@
 ## v2 — synchronized (애플리케이션 락)
 
 ### 구현 요지
-- 파사드: `synchronized`는 트랜잭션 경계 밖, 실제 tx는 별도 빈 `@Transactional`. 락 ⊃ 트랜잭션(커밋 후 해제).
+- 파사드 `CouponIssueServiceV2`: `synchronized(lock)`는 트랜잭션 경계 밖. 실제 tx는 **별도 빈**
+  `CouponIssueServiceV2Inner`(@Transactional) 프록시 호출 → 커밋이 모니터 안에서 완료. 락 ⊃ 트랜잭션.
+- ⚠️ 프록시 함정 회피 검증: 같은 빈 자기호출이면 커밋이 모니터 밖으로 새 lost update 재발 →
+  actual&gt;100이 나야 함. **actual=100(PASS)이 분리가 런타임에 올바로 먹었다는 결정적 증거.**
 
 ### 결과
 | 축 | 지표 | v2 |
 |----|------|-----|
-| 정확성 | total/counter/actual | — / — / — |
-| 정확성 | 성공 시그니처 | — |
-| 성능 | 성공 throughput | — |
-| 성능 | 성공(200) p95 / p99 | — |
-| 성능 | 409율 / 503율 (steady) | — |
+| 정확성 | total/counter/actual | 100 / 100 / **100** |
+| 정확성 | 성공 시그니처 | **PASS** ✓ *(actual==counter==total)* |
+| 정확성 | 성공200 / 한도409 / other | 100 / 11576 / 0 |
+| 성능 | 성공 throughput | **263.6/s** (7907건/30s) |
+| 성능 | 성공(200) p95 / p99 | **2970.7ms / 3478.2ms** |
+| 성능 | 409율 / 503율 (steady) | 0% / **0%** |
 
 ### 해석 / 학습 노트
-- 정합 회복(직렬화). 한계: **단일 JVM에서만 정합**(인스턴스마다 별도 모니터), 직렬화 throughput 병목.
+- **정합 회복**: v1의 actual=999 → v2 actual=100. `synchronized` 전직렬화로 초과 0.
+- **counter도 진실과 일치(v1과 결정적 차이)**: v1은 counter=100≪actual=999(lost update)였는데, v2는
+  counter=100==actual=100. 직렬화가 read-modify-write를 원자화 → `coupon.issued`까지 정확해짐.
+- **프록시 함정 회피 실증**: 파사드+별도 빈 분리가 올바라 actual=100(초과 0). 분리 실패였다면 단일 JVM에서도 초과.
+- **직렬화 비용**: throughput 404/s(v1) → 263.6/s(v2), p95 1.8s → 3.0s. 전직렬화의 대가.
+  (★ 버전 간 직접 비교는 Step G 규율 — 여기선 v2 자체의 정책 특성으로만 기록.)
+- **경합 흡수 = park**: 모니터 대기는 무한 park라 거절 없음 → **503=0**(양축). fail-fast(v4/v5)와 대조될 지점.
+- **한계**: 단일 JVM에서만 정합(인스턴스마다 별도 모니터) → 다중 인스턴스에선 붕괴 → v3(공유 DB행) 이행 근거.
 
 ---
 

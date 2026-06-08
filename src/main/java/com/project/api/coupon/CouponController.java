@@ -3,6 +3,7 @@ package com.project.api.coupon;
 import com.project.api.coupon.dto.CouponIssueRequest;
 import com.project.api.coupon.dto.CouponIssueResponse;
 import com.project.service.coupon.CouponIssueServiceV1;
+import com.project.service.coupon.CouponIssueServiceV2;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,13 +20,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class CouponController {
 
     private final CouponIssueServiceV1 v1Service;
+    private final CouponIssueServiceV2 v2Service;
 
-    public CouponController(CouponIssueServiceV1 v1Service) {
+    public CouponController(CouponIssueServiceV1 v1Service,
+                            CouponIssueServiceV2 v2Service) {
         this.v1Service = v1Service;
+        this.v2Service = v2Service;
     }
 
     @PostMapping("/v1/coupons/issue")
     public CouponIssueResponse issueV1(@RequestBody CouponIssueRequest request) {
         return v1Service.issue(request.couponId(), request.userId());
+    }
+
+    @PostMapping("/v2/coupons/issue")
+    public CouponIssueResponse issueV2(@RequestBody CouponIssueRequest request) {
+        return v2Service.issue(request.couponId(), request.userId());
     }
 }
