@@ -154,20 +154,34 @@
 ## v4 — Redis 분산 락 (Redisson RLock)
 
 ### 구현 요지
-- 파사드(락 ⊃ tx), **워치독 자동갱신(leaseTime 미지정)**, waitTime=0(fail-fast). unlock 가드 + tryLock 예외 가드.
+- `CouponIssueServiceV4`(파사드, 락 ⊃ tx): `redissonClient.getLock("lock:coupon:{id}")` →
+  `tryLock(0, SECONDS)`(waitTime=0 fail-fast, **leaseTime 미지정 → 워치독 자동갱신**) → 실패 시 503 ⓒ →
+  성공 시 별도 빈 `CouponIssueServiceV4Inner`(@Transactional) → 커밋 → `finally` unlock.
+- 가드: ① 미획득 unlock 안 함(IllegalMonitorStateException→500 오염 방지). ② tryLock RedisException도 단일 ⓒ +
+  WARN 로그(인프라 장애 ≠ 락 패배). Redisson 3.50.0 자동구성(localhost:6379), 기존 Lettuce 무충돌.
 
 ### 결과
 | 축 | 지표 | v4 |
 |----|------|-----|
-| 정확성 (공유부하 10s) | total/counter/actual | — / — / — |
-| 정확성 (재측정 90s, 필요시) | total/counter/actual | — / — / — |
-| 성능 | 성공 throughput | — |
-| 성능 | 성공(200) p95 / p99 | — |
-| 성능 | 503율 / ⓐ/ⓑ/ⓒ 분해 | — |
+| 정확성 (공유부하 10s) | total/counter/actual | 100 / 62 / **62** (초과 0; 미충전) |
+| 정확성 (재측정 90s 충전) | total/counter/actual | 100 / 100 / **100** (초과 0; **수렴**) |
+| 성능 | 성공 throughput | **6.3/s** (189건/30s) |
+| 성능 | 성공(200) p95 / p99 | **418.2ms / 467.3ms** |
+| 성능 | 락거절(503) p95 / p99 | 50.0ms / 71.6ms |
+| 성능 | 503율 / ⓐ/ⓑ/**ⓒ** 분해 | **99.9%** / 0 / 0 / **249,563** (미분류 0) |
 
 ### 해석 / 학습 노트
-- 정확성 `≤ total`(초과 0). 10s 미충전은 fail-fast 정상 귀절(미달≠실패). 거절(ⓒ) 경로 신설.
-- 직렬화 좌표 외부(Redis) 이동. 한계: SPOF, **fencing 부재**(워치독은 함정 좁힘, 제거 못 함).
+- **정합 `≤ total`(초과 0) — fail-fast 미충전 ≠ 실패(클래스 B)**: 10s actual=62(미충전), 90s 충전 시 actual=**100**
+  으로 **정확히 수렴**(초과 0). 즉 미달은 대기 큐 부재의 정상 귀결이지 정합 실패가 아님 — 하네스 FAIL 라벨은
+  10s 미충전을 가리킬 뿐(해석으로 닫음). counter==actual 양쪽 다(락 정합).
+- **★ 503 분류 코드 실주행 증명**: 성능축 249,563건이 503 ⓒ LOCK_NOT_ACQUIRED로 라우팅, **미분류 0**.
+  v3에서 음성이던 503 라우팅·errorCode 분류가 여기서 ⓒ로 증명됨(예측대로). 거절률 99.9% = **단일 핫키 +
+  즉시실패의 귀결**이지 분산 락 일반의 성질 아님(범위 한정).
+- **경합 흡수 = 거절(fail-fast)**: v2/v3(park/DB큐 = 지연 흡수)와 정반대. 거절은 50ms 저지연, 성공은 418ms.
+  성공 throughput 6.3/s는 단일 핫키에 락을 직렬 통과한 수 — **버전 간 비교 금지**(Step G).
+- **직렬화 좌표 외부(Redis) 이동.** 한계(명시): **단일 Redis = SPOF**, **true Redlock 아님**(단일 노드, 멀티 마스터
+  쿼럼 아님), **fencing 부재** — 워치독은 만료-중간탈취 함정을 좁히나 제거 못 함(GC pause/네트워크 단절 시 두
+  홀더 동시 점유는 fencing token 없이는 남음, Step G·v5 스톨 데모). → §6 프로덕션 v3 선택 근거.
 
 ---
 

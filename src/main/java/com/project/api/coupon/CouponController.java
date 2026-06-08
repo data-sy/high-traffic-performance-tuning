@@ -6,6 +6,7 @@ import com.project.service.coupon.CouponDbExceptionClassifier;
 import com.project.service.coupon.CouponIssueServiceV1;
 import com.project.service.coupon.CouponIssueServiceV2;
 import com.project.service.coupon.CouponIssueServiceV3;
+import com.project.service.coupon.CouponIssueServiceV4;
 import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,13 +29,16 @@ public class CouponController {
     private final CouponIssueServiceV1 v1Service;
     private final CouponIssueServiceV2 v2Service;
     private final CouponIssueServiceV3 v3Service;
+    private final CouponIssueServiceV4 v4Service;
 
     public CouponController(CouponIssueServiceV1 v1Service,
                             CouponIssueServiceV2 v2Service,
-                            CouponIssueServiceV3 v3Service) {
+                            CouponIssueServiceV3 v3Service,
+                            CouponIssueServiceV4 v4Service) {
         this.v1Service = v1Service;
         this.v2Service = v2Service;
         this.v3Service = v3Service;
+        this.v4Service = v4Service;
     }
 
     @PostMapping("/v1/coupons/issue")
@@ -50,6 +54,11 @@ public class CouponController {
     @PostMapping("/v3/coupons/issue")
     public CouponIssueResponse issueV3(@RequestBody CouponIssueRequest request) {
         return issueViaV3(request);
+    }
+
+    @PostMapping("/v4/coupons/issue")
+    public CouponIssueResponse issueV4(@RequestBody CouponIssueRequest request) {
+        return v4Service.issue(request.couponId(), request.userId());
     }
 
     /** 프로덕션 무버전 별칭 → V3 (스펙 §6). 하네스 비측정, 운영 트래픽용. */
