@@ -2,6 +2,7 @@ package com.project.api.coupon;
 
 import com.project.api.coupon.dto.CouponErrorResponse;
 import com.project.domain.coupon.CouponSoldOutException;
+import com.project.service.coupon.DuplicateIssueException;
 import com.project.service.coupon.LockNotAcquiredException;
 import com.project.service.coupon.LockWaitException;
 import com.project.service.coupon.PoolTimeoutException;
@@ -29,6 +30,12 @@ public class CouponExceptionHandler {
     @ExceptionHandler(CouponSoldOutException.class)
     public ResponseEntity<CouponErrorResponse> handleSoldOut(CouponSoldOutException e) {
         return error(HttpStatus.CONFLICT, "SOLD_OUT", e.getMessage());
+    }
+
+    /** 중복 발급 — 409 (전 버전 공통). 부하 경로는 유니크 userId라 미발생, 단건 재요청 검증 전용. */
+    @ExceptionHandler(DuplicateIssueException.class)
+    public ResponseEntity<CouponErrorResponse> handleDuplicate(DuplicateIssueException e) {
+        return error(HttpStatus.CONFLICT, "ALREADY_ISSUED", e.getMessage());
     }
 
     /**
