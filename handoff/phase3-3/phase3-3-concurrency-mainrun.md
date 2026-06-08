@@ -271,7 +271,7 @@ CouponRepository, CouponIssueRepository: 기본 JpaRepository (Step A에서 메�
   - **⚠️ unlock 가드(v4 헤드라인 503 지표 보호)**: 미획득 락 unlock 금지(Redisson은 미보유 unlock 시
     `IllegalMonitorStateException` → 거절이 500으로 새 거절률 분모 오염). 구조 고정:
     ```
-    boolean locked = lock.tryLock(0, leaseTime, unit);   // waitTime=0 즉시 실패
+    boolean locked = lock.tryLock(0, unit);   // waitTime=0 즉시 실패 (leaseTime 미지정 → 워치독 자동갱신, §8 #4)
     if (!locked) return 503 LOCK_NOT_ACQUIRED;            // unlock 호출 안 함
     try { innerTx(...); } finally { if (lock.isHeldByCurrentThread()) lock.unlock(); }
     ```

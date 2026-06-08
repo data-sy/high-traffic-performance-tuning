@@ -49,8 +49,8 @@ public class CouponExceptionHandler {
     }
 
     /**
-     * ⓐ 풀 고갈 — 503 POOL_TIMEOUT. <b>throw 측 Step D:</b> v3 서비스가 DataAccessException 체인에서
-     * SQLTransientConnectionException 탐지 후 던짐.
+     * ⓐ 풀 고갈 — 503 POOL_TIMEOUT. <b>throw 측 = v3 컨트롤러 경계</b>(issueViaV3→CouponDbExceptionClassifier)가
+     * DataAccessException 체인에서 SQLTransientConnectionException 탐지 후 던짐(tx-begin/첫 쿼리 풀 고갈을 @Transactional 밖에서 포착).
      */
     @ExceptionHandler(PoolTimeoutException.class)
     public ResponseEntity<CouponErrorResponse> handlePoolTimeout(PoolTimeoutException e) {
@@ -58,7 +58,7 @@ public class CouponExceptionHandler {
     }
 
     /**
-     * ⓑ 행락 대기 타임아웃 — 503 LOCK_WAIT_TIMEOUT. <b>throw 측 Step D:</b> v3 서비스가
+     * ⓑ 행락 대기 타임아웃 — 503 LOCK_WAIT_TIMEOUT. <b>throw 측 = v3 컨트롤러 경계</b>(CouponDbExceptionClassifier)가
      * DataAccessException 체인에서 MySQL error 1205 탐지 후 던짐.
      */
     @ExceptionHandler(LockWaitException.class)
