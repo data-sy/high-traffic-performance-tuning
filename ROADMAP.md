@@ -22,9 +22,6 @@
 - **[정리] k6 결과 phase 디렉터리 재배치 PR 머지** — PR [#7](https://github.com/data-sy/high-traffic-performance-tuning/pull/7) (`chore/reorg-k6-results`)
   - 재배치 커밋(`d3fd12b`)이 별도 브랜치에 파킹됨. main 보호 규칙(PR 필수)으로 직접 push 불가 → PR로만 머지
   - 머지 후 작업 브랜치들이 새 결과 레이아웃(`results/phaseN-*/k6/`)을 따라가도록 동기화
-- **[문서] 동시성 스펙 확정** — `specs/phase3-3-concurrency-draft.md` → refine 후 `-draft` 제거
-  - 초안 작성 완료. 다른 세션에서 정돈 + adapted `/audit-doc`로 검증 후 확정
-  - 미해결 결정: v4 Redis 락 방식(SET NX+Lua vs Lua 카운터), 분산환경(Docker 3인스턴스+Nginx) 포함 여부, Fallback/서킷브레이커 포함 여부 (초안 "보강 후보" 섹션 참조)
 ---
 
 ## Later — 백로그 (아직 미착수, 검토 단계)

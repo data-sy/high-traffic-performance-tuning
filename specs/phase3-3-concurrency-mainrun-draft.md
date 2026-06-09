@@ -1,6 +1,10 @@
 # Phase 3-3 — 동시성 제어 (쿠폰 발급 락 사다리) · 본 실행 개정 스펙
 
-> **상태**: `-draft` — 별도 세션 `/audit-doc` 검증 전 단계 (메모리 `spec-draft-workflow`).
+> **상태**: ⛔ **SUPERSEDED (대체됨 — 기록용 보존)**. 이 초안은 검증·확정을 거쳐 두 정본으로 대체됐다:
+> 확정 스펙 [`specs/phase3-3-concurrency.md`](./phase3-3-concurrency.md) + 핸드오프 배치본
+> [`handoff/phase3-3/phase3-3-concurrency-mainrun.md`](../handoff/phase3-3/phase3-3-concurrency-mainrun.md)(audit Healthy).
+> 이 파일은 작성 시점 기록용으로만 남긴다 — 최신 내용은 정본을 보라. (이하 원문 보존)
+>
 > **대상 브랜치**: `phase/3-3-concurrency-lock` (본 실행). 현재 이 초안은 리허설 워크트리
 > `sandbox/phase3-3-dryrun`에서 작성되며, Step 1 핸드오프로 본 실행에 전달된다.
 > **개정 출처**: 샌드박스 리허설(v1~v5 + 통제 재실험 3-3-2)이 5세션에 걸쳐 잡은 발견 9건·통제 설계·

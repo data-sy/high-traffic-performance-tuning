@@ -352,4 +352,4 @@ duration을 늘리면 100으로 수렴한다. 측정값을 정확히 읽고도 �
 - **[results/phase3-3-concurrency/decision-log-v3.md](../../results/phase3-3-concurrency/decision-log-v3.md)** — 의사결정 서사 ★ 채택본(v1·v2는 톤 비교 기록용 보존).
 - **[handoff/phase3-3/phase3-3-concurrency-mainrun.md](../../handoff/phase3-3/phase3-3-concurrency-mainrun.md)** — 본 실행 개정 스펙(방법론·3축·통제 규율·§6 결정).
 - 락 구현: `src/main/java/com/project/service/coupon/CouponIssueServiceV1..V5.java`, `CouponStallDemoService.java`.
-- PR: _(병합 시 링크 — placeholder)_
+- PR: [#8](https://github.com/data-sy/high-traffic-performance-tuning/pull/8) (락 사다리), [#9](https://github.com/data-sy/high-traffic-performance-tuning/pull/9) (README)
