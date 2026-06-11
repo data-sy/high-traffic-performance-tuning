@@ -1,8 +1,7 @@
 # Phase 3-3 — 동시성 제어 (쿠폰 발급) 측정 분석
 
-> 📋 **템플릿** — 본 실행(`phase/3-3-concurrency-lock`)이 각 버전 측정 직후 해당 섹션을 채운다.
-> 숫자는 빈칸(`—`)으로 두었다. 형식은 기존 `results/phase3-1-*`·`results/phase3-2-*` 관례를 따르되
-> 구체 파일 명명은 런 세션이 그 두 디렉토리를 읽어 맞춘다(스펙 §10).
+> ✅ **확정·동결본** — 본 실행(`phase/3-3-concurrency-lock`)의 v1~v5 + 스톨 데모 측정이 모두 채워진
+> 1차 출처다(회고 리포트·README가 이 파일을 인용). 형식은 기존 `results/phase3-1-*`·`results/phase3-2-*` 관례를 따른다.
 >
 > **정합성 단일 진실 소스**: `SELECT COUNT(*) FROM coupon_issue WHERE coupon_id=1` (= `actual_issued`).
 > `coupon.issued` 컬럼은 lost update로 부정확할 수 있어 보조지표로만 본다.

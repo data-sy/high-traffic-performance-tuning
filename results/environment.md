@@ -71,7 +71,7 @@
 - **Stages**: 30s warmup (0→50 VUs), 1min load (50→100 VUs), 30s cooldown (100→0 VUs)
 - **Versions Tested**: v1 (DB no index), v2 (DB covering index), v3 (String cache), v4 (Sorted Set)
 - **Threshold**: p(95) < 1000ms
-- **Result Files**: `results/k6/phase3-2-v{1..4}.json`
+- **Result Files**: `results/phase3-2-ranking-optimization/k6/phase3-2-v{1..4}.json`
 - **Test Date**: 2026-02-09
 
 ---

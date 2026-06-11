@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>응답은 202, 발급은 아직 — 비동기 발급 원정 지도 (Phase 3-4)</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F7F3EA; --card:#FDFBF4; --panel:#F1ECDD; --inset:#EDE7D5;
+  --ink:#24271F; --soft:#5A5648; --mute:#8E8770;
+  --rule:#D8D0B8; --rule-soft:#E6DFCB;
+  --red:#B23A2B; --red-soft:#F4DFD8; --red-bd:#D9A091;
+  --green:#2F6B52; --green-soft:#DFE9DD; --green-bd:#9DBCA6;
+  --gold:#96701D; --gold-soft:#F2E7C8; --gold-bd:#D7BD7E;
+  --blue:#2D5577; --blue-soft:#DEE7EE; --blue-bd:#9FB8CC;
+  --code-bg:#2B2A24; --code-tx:#E8E3D2; --code-cm:#9A937C; --code-kw:#E0B05F; --code-str:#A8C29A;
+  --kr:'Pretendard Variable',-apple-system,sans-serif;
+  --display:'Fraunces',serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --paper:#1B1A16; --card:#23211B; --panel:#26241D; --inset:#2C2A21;
+    --ink:#E9E4D4; --soft:#B5AE99; --mute:#7C7662;
+    --rule:#3D3A2E; --rule-soft:#343228;
+    --red:#E07B68; --red-soft:#3A211C; --red-bd:#6E342A;
+    --green:#7FB89B; --green-soft:#1F2E26; --green-bd:#3A5C49;
+    --gold:#D9B468; --gold-soft:#332B18; --gold-bd:#6E5A2B;
+    --blue:#8FB4D4; --blue-soft:#1D2932; --blue-bd:#3A5570;
+    --code-bg:#15140F; --code-tx:#DDD7C4; --code-cm:#807A66; --code-kw:#D9B468; --code-str:#A4BD96;
+  }
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--kr);background:var(--paper);color:var(--ink);line-height:1.75;font-size:16.5px;
+  background-image:radial-gradient(ellipse at 12% 18%, rgba(150,112,29,.04) 0%, transparent 50%),
+                   radial-gradient(ellipse at 88% 85%, rgba(45,85,119,.035) 0%, transparent 50%)}
+.container{max-width:860px;margin:0 auto;padding:0 28px 110px}
+em{font-style:normal;font-weight:650}
+strong{font-weight:700}
+code{font-family:var(--mono);font-size:.86em;background:var(--inset);padding:1px 6px;border-radius:4px;border:1px solid var(--rule-soft)}
+
+/* ---------- cover ---------- */
+header.cover{text-align:center;padding:78px 28px 52px;border-bottom:1px solid var(--rule);background:var(--card)}
+.cover .eyebrow{font-family:var(--display);font-style:italic;font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:26px}
+.ledger-line{display:inline-flex;align-items:baseline;gap:22px;font-family:var(--display);margin-bottom:10px;flex-wrap:wrap;justify-content:center}
+.ledger-line .entry{display:flex;flex-direction:column;align-items:center;gap:2px}
+.ledger-line .lbl{font-family:var(--kr);font-size:12.5px;letter-spacing:.12em;color:var(--mute);font-weight:600}
+.ledger-line .num{font-size:clamp(52px,9vw,84px);font-weight:340;line-height:1;letter-spacing:-.02em}
+.ledger-line .num.ok{color:var(--ink)}
+.ledger-line .vs{font-style:italic;font-size:20px;color:var(--mute);align-self:center}
+.stamp{position:relative;color:var(--red)}
+.stamp .num{color:var(--red);font-weight:420}
+.stamp::after{content:'초과 +899';position:absolute;top:-14px;right:-30px;transform:rotate(7deg);
+  font-family:var(--kr);font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--red);
+  border:2px solid var(--red);border-radius:4px;padding:2px 7px;opacity:.85;background:var(--card)}
+.cover h1{font-family:var(--kr);font-weight:760;font-size:clamp(26px,4.6vw,38px);line-height:1.28;letter-spacing:-.022em;max-width:680px;margin:26px auto 14px}
+.cover h1 .it{font-family:var(--display);font-style:italic;font-weight:400;color:var(--gold)}
+.cover .subtitle{font-size:16px;color:var(--soft);max-width:600px;margin:0 auto;line-height:1.8}
+.cover .meta{font-family:var(--display);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin-top:30px}
+
+/* ---------- nav ---------- */
+nav.toc{position:sticky;top:0;z-index:60;background:color-mix(in srgb, var(--paper) 88%, transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--rule)}
+.toc-row{max-width:860px;margin:0 auto;display:flex;overflow-x:auto;padding:0 18px;scrollbar-width:none}
+.toc-row::-webkit-scrollbar{display:none}
+.toc a{flex-shrink:0;padding:13px 13px;font-size:12.5px;font-weight:600;letter-spacing:.03em;color:var(--mute);text-decoration:none;border-bottom:2px solid transparent;transition:.15s}
+.toc a:hover{color:var(--ink)}
+.toc a.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* ---------- sections ---------- */
+section{padding-top:64px}
+.kicker{font-family:var(--display);font-style:italic;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+h2{font-size:clamp(23px,3.6vw,30px);font-weight:760;letter-spacing:-.022em;line-height:1.3;margin-bottom:18px}
+h2 .it{font-family:var(--display);font-style:italic;font-weight:400;color:var(--gold)}
+h3{font-size:18px;font-weight:740;margin:34px 0 12px;letter-spacing:-.015em}
+p{margin-bottom:16px;color:var(--ink)}
+p.dim{color:var(--soft)}
+.lede{font-size:18px;line-height:1.85;color:var(--ink)}
+
+/* ---------- prerequisites cards ---------- */
+.prereq-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:26px 0 8px}
+@media(max-width:680px){.prereq-grid{grid-template-columns:1fr}}
+.prereq{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:18px 20px}
+.prereq .pnum{font-family:var(--display);font-style:italic;font-size:13px;color:var(--gold);margin-bottom:6px;display:block}
+.prereq h4{font-size:15.5px;font-weight:740;margin-bottom:7px;letter-spacing:-.01em}
+.prereq p{font-size:14px;color:var(--soft);line-height:1.7;margin-bottom:8px}
+.prereq .where{font-size:12px;color:var(--mute);border-top:1px dashed var(--rule-soft);padding-top:8px;margin-top:2px}
+.prereq .where b{color:var(--gold);font-weight:700}
+
+/* ---------- metaphor callout ---------- */
+.metaphor{background:var(--gold-soft);border:1px solid var(--gold-bd);border-radius:12px;padding:16px 20px;margin:20px 0;font-size:15px;line-height:1.78}
+.metaphor .mk{font-weight:800;color:var(--gold);margin-right:6px}
+
+/* ---------- trap / note callouts ---------- */
+.trap{background:var(--red-soft);border:1px solid var(--red-bd);border-radius:12px;padding:16px 20px;margin:20px 0;font-size:15px;line-height:1.78}
+.trap .mk{font-weight:800;color:var(--red);margin-right:6px}
+.note{background:var(--blue-soft);border:1px solid var(--blue-bd);border-radius:12px;padding:16px 20px;margin:20px 0;font-size:15px;line-height:1.78}
+.note .mk{font-weight:800;color:var(--blue);margin-right:6px}
+
+/* ---------- ledger incident table ---------- */
+.ledger-card{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:24px 26px;margin:26px 0}
+.ledger-card .lc-title{font-family:var(--display);font-style:italic;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:14px}
+.ledger-rows{display:flex;flex-direction:column;gap:0}
+.lrow{display:flex;justify-content:space-between;align-items:baseline;padding:10px 4px;border-bottom:1px dashed var(--rule-soft);gap:14px}
+.lrow:last-child{border-bottom:none}
+.lrow .k{font-size:14.5px;color:var(--soft)}
+.lrow .v{font-family:var(--mono);font-size:16px;font-weight:600}
+.lrow .v.bad{color:var(--red)} .lrow .v.good{color:var(--green)}
+
+/* ---------- race simulator ---------- */
+.sim{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:22px 24px;margin:28px 0}
+.sim-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.sim-head .t{font-weight:760;font-size:16px}
+.sim-btns{display:flex;gap:8px}
+.sim button{font-family:var(--kr);font-size:13.5px;font-weight:700;padding:8px 16px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);color:var(--ink);cursor:pointer;transition:.15s}
+.sim button:hover{border-color:var(--gold);color:var(--gold)}
+.sim button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.sim button.primary:hover{opacity:.85;color:var(--paper)}
+.sim button:disabled{opacity:.4;cursor:default}
+.sim-stage{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+@media(max-width:560px){.sim-stage{grid-template-columns:1fr}}
+.thread{background:var(--panel);border:1px solid var(--rule-soft);border-radius:10px;padding:12px 14px;min-height:118px;transition:border-color .2s}
+.thread.active{border-color:var(--gold)}
+.thread .th-name{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--mute);margin-bottom:8px}
+.thread .th-log{font-family:var(--mono);font-size:12.5px;line-height:1.9;color:var(--soft);white-space:pre-line}
+.thread .th-log .hl{color:var(--gold);font-weight:600}
+.sim-ledger{display:flex;gap:26px;flex-wrap:wrap;border-top:1px solid var(--rule-soft);padding-top:14px}
+.sim-ledger .cell{display:flex;flex-direction:column;gap:2px}
+.sim-ledger .cl{font-size:11.5px;letter-spacing:.08em;color:var(--mute);font-weight:700}
+.sim-ledger .cv{font-family:var(--mono);font-size:24px;font-weight:600}
+.sim-ledger .cv.bad{color:var(--red)}
+.sim-msg{font-size:13.5px;color:var(--soft);margin-top:12px;min-height:22px}
+.sim-msg b{color:var(--red)}
+
+/* ---------- axes ---------- */
+.axes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:26px 0}
+@media(max-width:680px){.axes{grid-template-columns:1fr}}
+.axis{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:18px 20px}
+.axis .ax-n{font-family:var(--display);font-style:italic;font-size:22px;color:var(--gold);line-height:1;margin-bottom:8px}
+.axis h4{font-size:15px;font-weight:760;margin-bottom:7px}
+.axis p{font-size:13.5px;color:var(--soft);line-height:1.7;margin:0}
+
+/* ---------- ladder version blocks ---------- */
+.ver{background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:30px 32px;margin:34px 0;position:relative}
+@media(max-width:560px){.ver{padding:24px 20px}}
+.ver-tag{display:inline-flex;align-items:center;gap:10px;margin-bottom:12px}
+.ver-tag .vn{font-family:var(--display);font-weight:560;font-size:15px;letter-spacing:.04em;background:var(--ink);color:var(--paper);border-radius:6px;padding:3px 11px}
+.ver-tag .badge{font-size:11.5px;font-weight:800;letter-spacing:.06em;border-radius:5px;padding:3px 9px;border:1px solid}
+.badge.fail{color:var(--red);background:var(--red-soft);border-color:var(--red-bd)}
+.badge.pass{color:var(--green);background:var(--green-soft);border-color:var(--green-bd)}
+.badge.scope{color:var(--blue);background:var(--blue-soft);border-color:var(--blue-bd)}
+.ver h3{margin:2px 0 4px;font-size:21px}
+.ver .ver-sub{font-size:14px;color:var(--mute);margin-bottom:16px}
+.ver .blocked{font-size:14.5px;color:var(--soft);border-left:3px solid var(--rule);padding:2px 0 2px 14px;margin:18px 0}
+.ver .blocked b{color:var(--ink)}
+
+/* choice table */
+table.choices{width:100%;border-collapse:collapse;font-size:13.5px;margin:16px 0 6px}
+table.choices th{font-size:12px;letter-spacing:.05em;color:var(--mute);text-align:left;font-weight:700;padding:8px 10px;border-bottom:1px solid var(--rule)}
+table.choices td{padding:10px;border-bottom:1px dashed var(--rule-soft);vertical-align:top;line-height:1.65;color:var(--soft)}
+table.choices td:first-child{font-weight:700;color:var(--ink);white-space:nowrap}
+table.choices tr.picked td{background:var(--gold-soft)}
+table.choices tr.picked td:first-child::after{content:' ←채택';color:var(--gold);font-size:11px;font-weight:800}
+
+/* code */
+pre.code{background:var(--code-bg);color:var(--code-tx);font-family:var(--mono);font-size:13px;line-height:1.75;border-radius:12px;padding:18px 20px;overflow-x:auto;margin:18px 0;border:1px solid var(--rule)}
+pre.code .cm{color:var(--code-cm)} pre.code .kw{color:var(--code-kw)} pre.code .st{color:var(--code-str)}
+
+/* stats strip */
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 4px}
+.stat{background:var(--panel);border:1px solid var(--rule-soft);border-radius:10px;padding:10px 16px;min-width:110px}
+.stat .sl{font-size:11px;letter-spacing:.07em;color:var(--mute);font-weight:700;margin-bottom:2px}
+.stat .sv{font-family:var(--mono);font-size:17px;font-weight:600}
+.stat .sv.bad{color:var(--red)} .stat .sv.good{color:var(--green)}
+.stat .sn{font-size:11px;color:var(--mute);margin-top:1px}
+
+/* lock location diagram */
+.loc-diagram{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:24px 0}
+@media(max-width:680px){.loc-diagram{grid-template-columns:1fr}}
+.loc{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:16px 18px;text-align:center}
+.loc .li{font-size:26px;margin-bottom:6px}
+.loc h4{font-size:14px;font-weight:760;margin-bottom:4px}
+.loc p{font-size:12.5px;color:var(--soft);line-height:1.65;margin:0}
+.loc .scope-pill{display:inline-block;font-size:11px;font-weight:800;border-radius:4px;padding:2px 8px;margin-top:8px}
+.loc .scope-pill.s1{background:var(--red-soft);color:var(--red)}
+.loc .scope-pill.s2{background:var(--green-soft);color:var(--green)}
+
+/* stall timeline */
+.stall{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:24px 26px;margin:26px 0}
+.stall-track{position:relative;margin:18px 0 6px;padding-left:64px}
+.stall-row{display:flex;align-items:center;gap:0;margin-bottom:14px;position:relative;min-height:34px}
+.stall-row .who{position:absolute;left:-64px;width:54px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--mute);text-align:right}
+.seg{height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:.02em;padding:0 8px;white-space:nowrap}
+.seg.hold{background:var(--green-soft);color:var(--green);border:1px solid var(--green-bd)}
+.seg.stall-seg{background:var(--gold-soft);color:var(--gold);border:1px dashed var(--gold-bd)}
+.seg.expired{background:transparent;color:var(--mute);border:1px dashed var(--rule)}
+.seg.steal{background:var(--red-soft);color:var(--red);border:1px solid var(--red-bd)}
+.stall-mark{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--red);opacity:.7}
+.stall-mark .ml{position:absolute;top:-20px;left:-30px;width:70px;text-align:center;font-size:10.5px;font-weight:800;color:var(--red)}
+.stall .legend{font-size:12.5px;color:var(--mute);margin-top:14px;line-height:1.7}
+
+/* comparison table */
+table.compare{width:100%;border-collapse:collapse;font-size:13px;margin:20px 0}
+table.compare th{font-size:12px;color:var(--mute);font-weight:700;padding:9px 8px;border-bottom:1px solid var(--rule);text-align:center}
+table.compare th:first-child{text-align:left}
+table.compare td{padding:9px 8px;border-bottom:1px dashed var(--rule-soft);text-align:center;color:var(--soft);line-height:1.5}
+table.compare td:first-child{text-align:left;font-weight:700;color:var(--ink);white-space:nowrap}
+table.compare td.bad{color:var(--red);font-weight:700}
+table.compare td.good{color:var(--green);font-weight:700}
+table.compare td.pick{background:var(--gold-soft);color:var(--ink);font-weight:700}
+.tbl-scroll{overflow-x:auto}
+
+/* glossary */
+dfn.term{font-style:normal;text-decoration:underline dotted var(--gold);text-underline-offset:3px;cursor:help;color:inherit}
+#term-pop{position:absolute;z-index:90;max-width:320px;background:var(--card);border:1px solid var(--gold-bd);border-radius:10px;padding:12px 15px;font-size:13px;line-height:1.7;color:var(--soft);box-shadow:0 8px 28px rgba(0,0,0,.14);display:none}
+#term-pop .tp-t{font-weight:800;color:var(--ink);font-size:13.5px;margin-bottom:4px}
+.glossary{margin-top:10px}
+.gl-item{padding:14px 4px;border-bottom:1px dashed var(--rule-soft)}
+.gl-item .gt{font-weight:760;font-size:15px;margin-bottom:3px}
+.gl-item .gt code{font-size:.9em}
+.gl-item .gd{font-size:14px;color:var(--soft);line-height:1.75}
+
+footer{margin-top:80px;padding-top:22px;border-top:1px solid var(--rule);font-size:12px;color:var(--mute);text-align:center;line-height:1.8}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* ---------- phase 3-4 additions: forecast machinery ---------- */
+.stamp.q::after{content:'예측 문서'}
+.ledger-line .num.q{color:var(--gold);font-weight:420}
+.banner{background:var(--card);border:1.5px dashed var(--gold-bd);border-radius:14px;padding:18px 22px;margin:34px 0 0;font-size:14.5px;line-height:1.8;color:var(--soft)}
+.banner b{color:var(--gold)}
+.fcast{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;letter-spacing:.05em;border-radius:5px;padding:3px 9px;border:1.5px dashed var(--gold-bd);color:var(--gold);background:var(--gold-soft)}
+.fcast .dots{font-family:var(--mono);letter-spacing:2px;font-weight:600}
+.frozen-tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;border-radius:5px;padding:2px 8px;background:var(--blue-soft);color:var(--blue);border:1px solid var(--blue-bd)}
+.trouble{background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:26px 28px;margin:28px 0;position:relative}
+@media(max-width:560px){.trouble{padding:22px 18px}}
+.trouble .t-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.trouble .tn{font-family:var(--display);font-weight:560;font-size:14px;letter-spacing:.04em;background:var(--ink);color:var(--paper);border-radius:6px;padding:3px 11px}
+.trouble h3{margin:2px 0 14px;font-size:19px}
+.t-grid{display:grid;grid-template-columns:88px 1fr;gap:8px 14px;font-size:14px;line-height:1.7}
+@media(max-width:560px){.t-grid{grid-template-columns:1fr}}
+.t-grid .tk{font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--mute);padding-top:3px}
+.t-grid .tv{color:var(--soft)}
+.t-grid .tv b{color:var(--ink)}
+.t-slot{margin-top:16px;border:1.5px dashed var(--rule);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--mute);background:var(--inset)}
+.t-slot b{color:var(--gold);font-weight:800;letter-spacing:.05em}
+/* fork cards */
+.fork{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:24px 0}
+@media(max-width:680px){.fork{grid-template-columns:1fr}}
+.fork .f{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:20px 22px}
+.fork .f h4{font-size:16px;font-weight:760;margin-bottom:4px}
+.fork .f .f-sub{font-size:12.5px;color:var(--mute);margin-bottom:12px}
+.fork .f ul{list-style:none;font-size:13.5px;color:var(--soft);line-height:1.75}
+.fork .f li{padding-left:18px;position:relative;margin-bottom:6px}
+.fork .f li.up::before{content:'＋';position:absolute;left:0;color:var(--green);font-weight:800}
+.fork .f li.down::before{content:'－';position:absolute;left:0;color:var(--red);font-weight:800}
+/* flow diagram (before/after) */
+.flow{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:20px 24px;margin:22px 0}
+.flow .fl-title{font-family:var(--display);font-style:italic;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:12px}
+.flow-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}
+.fnode{background:var(--panel);border:1px solid var(--rule-soft);border-radius:8px;padding:7px 12px;font-weight:700;white-space:nowrap}
+.fnode.hot{background:var(--red-soft);border-color:var(--red-bd);color:var(--red)}
+.fnode.cool{background:var(--green-soft);border-color:var(--green-bd);color:var(--green)}
+.fnode.q-node{background:var(--gold-soft);border-color:var(--gold-bd);color:var(--gold)}
+.farrow{color:var(--mute);font-family:var(--mono);font-size:14px}
+.fnote{font-size:12.5px;color:var(--mute);margin-top:10px;line-height:1.7}
+/* checklist */
+.check{margin:20px 0}
+.check .ci{display:flex;gap:12px;padding:13px 4px;border-bottom:1px dashed var(--rule-soft);font-size:15px;line-height:1.7}
+.check .ci .cn{font-family:var(--display);font-style:italic;color:var(--gold);min-width:30px;text-align:right}
+.check .ci .cq{color:var(--ink)}
+.check .ci .cq .hint{display:block;font-size:12.5px;color:var(--mute);margin-top:3px}
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="eyebrow">Flashdeal Lab Notes · Phase 3-4 · Async Issuance</div>
+  <div class="ledger-line">
+    <div class="entry"><span class="lbl">응답</span><span class="num ok">202</span></div>
+    <div class="vs">그런데</div>
+    <div class="entry stamp q"><span class="lbl">발급</span><span class="num q">?</span></div>
+  </div>
+  <h1>줄을 없애는 게 아니라, <span class="it">줄을 옮긴다</span> —<br>비동기 발급 원정 지도</h1>
+  <p class="subtitle">phase 3-3에서 우리는 줄(경합)을 DB 앞에 세웠고, 그 줄이 커넥션을 쥔 채 서 있는 비용을 측정했다.
+  phase 3-4의 질문은 하나다 — <em>그 줄을 큐로 옮기면, 무엇이 풀려나고 무엇이 새로 막히는가?</em>
+  이 문서는 그 실험을 시작하기 <em>전에</em> 쓴 지도다.</p>
+  <div class="meta">Pre-flight Expedition Map · 출발 전 예측 일지 · 2026.06</div>
+</header>
+
+<nav class="toc"><div class="toc-row">
+  <a href="#prereq">0 선수지식</a>
+  <a href="#why">1 출발점</a>
+  <a href="#fork">2 갈림길</a>
+  <a href="#ladder">3 예상 사다리</a>
+  <a href="#troubles">4 일어나지 않은 사고들</a>
+  <a href="#measure">5 측정 계획</a>
+  <a href="#process">6 진행 방식</a>
+  <a href="#checklist">7 출발 전 점검</a>
+  <a href="#glossary">8 용어</a>
+</div></nav>
+
+<div class="container">
+
+<div class="banner">
+  <b>이 문서를 읽는 규칙.</b> phase 3-3 회고 문서(락 사다리 v1→v5)는 실측이 끝난 뒤에 썼다.
+  이 문서는 반대다 — <em>아직 코드 한 줄 없는 상태에서</em> 예상 시나리오·예상 사고·측정 계획을 먼저 적는다.
+  그래서 두 종류의 숫자만 등장한다: <span class="frozen-tag">동결본 · 실측</span> 표시가 붙은 phase 3-3 확정 수치와,
+  <span class="fcast">예측 <span class="dots">●●○</span></span> 표시가 붙은 가설.
+  예측 카드마다 확신도(●●● 거의 확실 / ●●○ 유력 / ●○○ 열어둠)와 <b>실측 후 기입</b> 빈 칸을 두었다 —
+  본 실행이 이 문서를 채점하게 만드는 것이 이 문서의 존재 이유다.
+</div>
+
+<!-- ============================================================ -->
+<section id="prereq">
+  <div class="kicker">Part 0 · Prerequisites</div>
+  <h2>본문에 들어가기 전, <span class="it">여덟 가지</span>만 챙기자</h2>
+  <p class="lede">phase 3-3의 일곱 카드가 "락"을 위한 장비였다면, 이번 여덟 카드는 "큐"를 위한 장비다.
+  이미 아는 카드는 건너뛰어도 된다 — 각 카드 하단에 <b>어느 장면에서 필요한지</b> 적어 두었다.</p>
+
+  <div class="prereq-grid">
+    <div class="prereq">
+      <span class="pnum">P1</span>
+      <h4>동기 → 비동기 — "응답"의 의미가 바뀐다</h4>
+      <p>동기 발급에서 <code>200 OK</code>는 "발급이 <em>끝났다</em>"는 뜻이다. 비동기에서 응답은
+      <dfn class="term" data-term="202 Accepted" data-def="요청을 '접수'했고 처리는 나중에 하겠다는 HTTP 상태코드. 처리의 성공/실패는 아직 아무것도 보장하지 않는다.">202 Accepted</dfn> —
+      "접수했고, 결과는 <em>나중에</em>"가 된다. 발급 여부는 응답이 아니라 별도 경로(상태 조회·알림)로 전달된다.
+      시스템이 잠시 서로 다른 답을 하다가 결국 한 답으로 수렴하는 이 성질이
+      <dfn class="term" data-term="최종 일관성 (eventual consistency)" data-def="갱신 직후에는 위치에 따라 다른 값이 보일 수 있지만, 새 갱신이 없으면 결국 모두 같은 값으로 수렴하는 일관성 모델.">최종 일관성</dfn>이다.</p>
+      <div class="where"><b>어디서:</b> §1 전체, §4 T3·T7 — 이 의미 변화를 놓치면 측정도 UX도 무너진다.</div>
+    </div>
+    <div class="prereq">
+      <span class="pnum">P2</span>
+      <h4>스레드풀 해부 — core, max, 그리고 줄 서는 순서</h4>
+      <p>스레드풀에는 상시 인원(core), 최대 인원(max), 대기열(queue)이 있다. 직관과 다른 함정:
+      Java 기본 정책은 core가 다 바쁘면 <em>먼저 큐에 줄을 세우고</em>, <em>큐가 가득 차야</em> max까지 증원한다.
+      즉 큐를 무제한으로 두면 max는 영원히 안 쓰인다. 큐도 차고 max도 차면
+      <dfn class="term" data-term="거부 정책 (RejectedExecutionHandler)" data-def="스레드풀이 더 못 받을 때의 행동. 예외(Abort), 호출자가 직접 실행(CallerRuns), 조용히 버림(Discard) 등.">거부 정책</dfn>이 발동한다.</p>
+      <div class="where"><b>어디서:</b> §3 v6a, §4 T2 — 기본값을 모르면 OOM 아니면 무한 스레드.</div>
+    </div>
+    <div class="prereq">
+      <span class="pnum">P3</span>
+      <h4><code>@Async</code>도 프록시다 — v2의 데자뷰</h4>
+      <p>phase 3-3에서 <code>@Transactional</code>이 프록시라서 v2의 락 위치가 갈렸던 것을 기억하는가.
+      <code>@Async</code>도 정확히 같은 메커니즘이다 — 같은 클래스 안에서 자기 메서드를 직접 부르면
+      (<dfn class="term" data-term="self-invocation" data-def="빈 내부에서 this.메서드()로 자신을 호출하는 것. 프록시를 거치지 않아 @Transactional·@Async 같은 AOP 부가기능이 적용되지 않는다.">self-invocation</dfn>)
+      프록시를 건너뛰어 <em>그냥 동기로 실행된다</em>. 예외도 조용히 삼켜질 수 있다(반환형이 void면 호출자에게 전파 안 됨).</p>
+      <div class="where"><b>어디서:</b> §4 T1 — 이번 phase에서 가장 먼저 밟을 가능성이 높은 함정.</div>
+    </div>
+    <div class="prereq">
+      <span class="pnum">P4</span>
+      <h4>브로커, 프로듀서, 컨슈머 — 그리고 ack</h4>
+      <p>큐가 프로세스 밖으로 나가면 역할이 셋으로 갈린다: 넣는 쪽(프로듀서), 보관하는 쪽(브로커), 꺼내 처리하는 쪽(컨슈머).
+      핵심은 "꺼냈다"와 "처리를 끝냈다"가 <em>다른 사건</em>이라는 것 — 처리 완료를 브로커에게 알리는 신호가
+      <dfn class="term" data-term="ack (acknowledgement)" data-def="컨슈머가 '이 메시지 처리 끝났음'을 브로커에 알리는 확인 신호. ack 전에 컨슈머가 죽으면 브로커는 그 메시지를 미완료로 간주할 수 있다.">ack</dfn>다.
+      ack가 없는 큐에서 컨슈머가 꺼낸 직후 죽으면, 그 메시지는 세상에서 사라진다.</p>
+      <div class="where"><b>어디서:</b> §3 v6b→v6c를 가르는 기준, §4 T5.</div>
+    </div>
+    <div class="prereq">
+      <span class="pnum">P5</span>
+      <h4>전달 보장 — 정확히 한 번은 환상이다</h4>
+      <p>메시지 전달 보장은 셋뿐이다.
+      <dfn class="term" data-term="at-most-once" data-def="최대 한 번 전달. 유실될 수 있지만 중복은 없다. '보내고 잊기'.">at-most-once</dfn>(유실 가능),
+      <dfn class="term" data-term="at-least-once" data-def="최소 한 번 전달. 유실은 없지만 재전달로 인한 중복이 생길 수 있다. 실무 기본값.">at-least-once</dfn>(중복 가능),
+      그리고 exactly-once — 마지막 것은 브로커 구간에서는 흉내 낼 수 있어도 <em>DB 커밋까지 포함한 끝단</em>에서는 공짜로 주어지지 않는다.
+      실무의 답은 정해져 있다: <em>at-least-once를 받아들이고, 처리를
+      <dfn class="term" data-term="멱등성 (idempotency)" data-def="같은 요청을 여러 번 수행해도 결과가 한 번 수행한 것과 같은 성질. 중복 전달을 무해하게 만드는 방패.">멱등</dfn>하게 만든다.</em></p>
+      <div class="where"><b>어디서:</b> §3 v6c, §4 T6 — 멱등 키 설계의 근거.</div>
+    </div>
+    <div class="prereq">
+      <span class="pnum">P6</span>
+      <h4>Redis 안의 세 후보 — Pub/Sub, List, Stream</h4>
+      <p>이미 떠 있는 Redis 안에 큐 후보가 셋 있다. <em>Pub/Sub</em>은 구독자가 없는 순간의 메시지가 증발한다 — 발급 요청 저장소로는 탈락.
+      <em>List</em>(<code>LPUSH</code>+<code>BRPOP</code>)는 진짜 큐지만 꺼내는 순간 큐에서 사라진다 — ack 없음.
+      <em>Stream</em>은 <dfn class="term" data-term="컨슈머 그룹 (consumer group)" data-def="여러 컨슈머가 한 스트림을 나눠 읽게 하는 단위. 각 메시지는 그룹 내 한 컨슈머에게만 배정된다.">컨슈머 그룹</dfn>과
+      <dfn class="term" data-term="PEL (Pending Entries List)" data-def="배정됐지만 아직 XACK되지 않은 메시지 목록. 컨슈머가 죽어도 여기 남아 있어 다른 컨슈머가 회수(XAUTOCLAIM)할 수 있다.">PEL</dfn>,
+      <code>XACK</code>을 갖춘 본격 큐다.</p>
+      <div class="where"><b>어디서:</b> §3 사다리의 등반 코스 그 자체.</div>
+    </div>
+    <div class="prereq">
+      <span class="pnum">P7</span>
+      <h4>백프레셔 — 들어오는 속도 &gt; 나가는 속도라면</h4>
+      <p>적재가 초당 500건인데 소비가 초당 100건이면, 큐 깊이는 초당 400씩 <em>그냥 자란다</em>. 큐는 폭주를 막아주지 않는다 —
+      폭주를 <em>지연으로 바꿔서 뒤로 미룰 뿐</em>이다. 무한 큐는 지연 폭탄이 되고, 유한 큐는 결국 입구에서 거절을 부활시킨다.
+      이 압력을 생산자 쪽으로 되미는 모든 장치를
+      <dfn class="term" data-term="백프레셔 (backpressure)" data-def="소비 속도를 넘는 유입을 생산자 쪽에서 감속·거절하게 만드는 흐름 제어. 유한 큐 + 거절, 적재율 제한 등이 수단.">백프레셔</dfn>라 부른다.</p>
+      <div class="where"><b>어디서:</b> §4 T7, §5 큐 깊이 지표. 아래 시뮬레이터로 직접 체감.</div>
+    </div>
+    <div class="prereq">
+      <span class="pnum">P8</span>
+      <h4>측정 용어의 의미 변화 — p95가 거짓말을 시작한다</h4>
+      <p>phase 3-3에서 응답시간은 곧 처리시간이었다. 비동기에서는 응답시간이 "접수에 걸린 시간"일 뿐이다.
+      그래서 새 지표가 필요하다:
+      <dfn class="term" data-term="E2E 발급 지연" data-def="요청 적재 시각부터 발급이 DB에 커밋된 시각까지의 전 구간 지연. 비동기 시스템의 진짜 체감 지연.">E2E 발급 지연</dfn>(적재→커밋),
+      <dfn class="term" data-term="큐 깊이 (queue depth)" data-def="브로커에 쌓여 아직 처리되지 않은 메시지 수. 적재율과 소비율의 차이가 적분된 값.">큐 깊이</dfn>,
+      그리고 수렴 시간(마지막 발급 커밋까지). HTTP p95만 보면 시스템이 빨라진 <em>것처럼</em> 보인다.</p>
+      <div class="where"><b>어디서:</b> §4 T3·T4, §5 전체 — 이번 phase 측정 규율의 심장.</div>
+    </div>
+  </div>
+
+  <div class="metaphor"><span class="mk">비유 하나로 끝까지 간다.</span>
+  phase 3-3이 "점원과 장부"였다면 이번엔 <em>은행 창구와 번호표</em>다.
+  동기 발급(v3)은 창구 앞에 직접 줄을 서는 것 — 줄 서는 동안 내 몸(커넥션·스레드)이 자리를 차지한다.
+  비동기 발급은 <em>번호표를 뽑고 자리를 비우는 것</em> — 입구 직원(프로듀서)은 번호표만 주고(202),
+  창구 직원(컨슈머)이 순서대로 처리하고, 결과는 전광판(상태 조회)에 뜬다.
+  번호표 기계가 종이(인메모리 큐)냐 중앙 서버(Redis)냐, 부른 번호를 "처리 완료" 도장(ack) 찍느냐가 이번 사다리의 칸이 된다.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="why">
+  <div class="kicker">Part 1 · The Starting Point</div>
+  <h2>출발점 — 동결본을 <span class="it">다시</span> 읽는다</h2>
+  <p class="lede">phase 3-4는 새 문제에서 출발하지 않는다. phase 3-3이 끝났을 때 장부에 남아 있던,
+  <em>해결됐지만 비용이 측정된</em> 숫자에서 출발한다.</p>
+
+  <p>v3(DB 비관적 행 락)는 정합성 게이트를 통과했고, 워크로드 적합성을 근거로 프로덕션 경로에 채택됐다.
+  그 결정은 이번 phase에서도 <em>흔들리지 않는다</em>. 다만 동결본에는 v3가 그 정합성을 지키는 방식의 비용이 함께 적혀 있다:</p>
+
+  <div class="stats">
+    <div class="stat"><div class="sl">초과발급 <span class="frozen-tag">동결본</span></div><div class="sv good">999 → 0</div><div class="sn">정합성 게이트 통과</div></div>
+    <div class="stat"><div class="sl">p95 응답 <span class="frozen-tag">동결본</span></div><div class="sv">2,630 ms</div><div class="sn">500VU 정확성 축</div></div>
+    <div class="stat"><div class="sl">커넥션 풀 <span class="frozen-tag">동결본</span></div><div class="sv bad">active 10/10</div><div class="sn">pending 189</div></div>
+    <div class="stat"><div class="sl">503 <span class="frozen-tag">동결본</span></div><div class="sv good">0</div><div class="sn">전원 줄을 서서 처리됨</div></div>
+  </div>
+
+  <p>이 숫자들을 한 문장으로 다시 읽으면 — <em>모든 요청이 결국 처리됐지만, 줄을 서는 동안 커넥션과 스레드를 쥔 채 서 있었다.</em>
+  풀 10차선이 전부 잠기고 189명이 풀 앞에 줄을 섰다. 줄 자체는 죄가 없다. 문제는 줄이 <em>비싼 자원을 점유한 채</em> 늘어선다는 것이다.</p>
+
+  <div class="flow">
+    <div class="fl-title">지금 — 동기 발급 (v3)</div>
+    <div class="flow-line">
+      <span class="fnode">요청</span><span class="farrow">→</span>
+      <span class="fnode hot">스레드 점유</span><span class="farrow">→</span>
+      <span class="fnode hot">커넥션 점유</span><span class="farrow">→</span>
+      <span class="fnode hot">행 락 대기</span><span class="farrow">→</span>
+      <span class="fnode">발급 커밋</span><span class="farrow">→</span>
+      <span class="fnode cool">200 "발급됨"</span>
+    </div>
+    <div class="fnote">붉은 구간 전체가 "응답시간"이고, 그동안 스레드·커넥션이 잠긴다. 줄이 길수록 잠김도 길다.</div>
+  </div>
+
+  <div class="flow">
+    <div class="fl-title">가설 — 비동기 발급 (v6 시리즈) <span class="fcast">예측 <span class="dots">●●●</span></span></div>
+    <div class="flow-line">
+      <span class="fnode">요청</span><span class="farrow">→</span>
+      <span class="fnode q-node">큐에 적재</span><span class="farrow">→</span>
+      <span class="fnode cool">202 "접수됨"</span>
+      <span class="farrow" style="margin:0 10px">‖</span>
+      <span class="fnode q-node">컨슈머</span><span class="farrow">→</span>
+      <span class="fnode hot">행 락·커밋</span><span class="farrow">→</span>
+      <span class="fnode cool">상태: 발급됨</span>
+    </div>
+    <div class="fnote">응답 경로와 처리 경로가 분리된다. 스레드·커넥션 점유는 컨슈머 쪽으로 이동하고,
+    사용자 쪽 줄은 "번호표 대기"로 바뀐다. <em>줄이 사라지는 게 아니라 — 큐로 옮겨가는 것</em>이다.</div>
+  </div>
+
+  <div class="note"><span class="mk">프레임 고정.</span>
+  phase 3-3의 결론 — 한정 수량 쿠폰에서 정합성은 협상 대상이 아니라 게이트고, 성능은 그 제약 안의 비용이다 — 는 이번에도 그대로다.
+  3-4는 "v3보다 빠른 것"을 찾는 실험이 아니라, <em>같은 게이트(초과발급 0)를 통과하는 또 다른 구조의 비용 프로파일</em>을 측정하는 실험이다.
+  비교의 단위가 응답시간에서 E2E 지연으로 바뀐다는 점만 다르다.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="fork">
+  <div class="kicker">Part 2 · The Fork</div>
+  <h2>첫 갈림길 — 재고 판정을 <span class="it">어디서</span> 할 것인가</h2>
+  <p class="lede">코드를 쓰기 전에 만나는 가장 큰 설계 분기. 100장 한정인데 10만 명이 달려들면,
+  "당신은 안 됩니다"를 <em>입구에서</em> 말할 것인가, <em>창구에서</em> 말할 것인가.</p>
+
+  <div class="fork">
+    <div class="f">
+      <h4>Fork A — 입구 판정</h4>
+      <div class="f-sub">적재 전에 Redis 원자 카운터로 선판정. 탈락자는 즉시 409, 큐에는 당첨 후보만 들어간다.</div>
+      <ul>
+        <li class="up">탈락이 즉시 확정 — 사용자는 기다리지 않고 결과를 안다</li>
+        <li class="up">큐가 슬림하다 — 깊이 ≤ 수량, 백프레셔 걱정이 거의 없다</li>
+        <li class="down">진실 소스가 둘이 된다 — Redis 카운터 vs <code>coupon_issue</code> 행 수</li>
+        <li class="down">컨슈머가 발급에 실패하면 카운터를 <em>되돌리는 보상</em>이 필요하다</li>
+        <li class="down">phase 3-3에서 세운 규율("진실 소스는 행 수 하나")과 긴장 관계</li>
+      </ul>
+    </div>
+    <div class="f">
+      <h4>Fork B — 출구 판정</h4>
+      <div class="f-sub">일단 전부 적재하고 202. 재고 판정은 컨슈머가 DB 앞에서 한다.</div>
+      <ul>
+        <li class="up">진실 소스가 하나다 — 판정 지점이 DB뿐, 보상 로직 없음</li>
+        <li class="up">구조가 단순해서 사다리 첫 칸으로 적합</li>
+        <li class="down">큐에 초과 적재 — 999명 적재되면 899명이 <em>나중에</em> 실패 통보를 받는다</li>
+        <li class="down">"202 받았는데 결국 탈락"이라는 UX — 상태 모델이 필수가 된다</li>
+        <li class="down">큐 깊이·소비 시간이 수요에 비례해 자란다</li>
+      </ul>
+    </div>
+  </div>
+
+  <p>지금 단계의 결정: <em>결정하지 않는다.</em> 사다리는 Fork B(단순한 쪽)로 시작하고,
+  Fork A는 마지막 칸 또는 후속 보강으로 남긴다 — 입구 판정의 "이중 진실 소스" 문제는
+  그 자체로 측정할 가치가 있는 별도 주제이기 때문이다. 이 분기는 스펙 단계의 승인 게이트 항목으로 올린다.
+  <span class="fcast">예측 <span class="dots">●●○</span></span></p>
+
+  <div class="metaphor"><span class="mk">번호표로 말하면.</span>
+  Fork A는 번호표 기계가 "오늘분 마감"을 미리 알고 101번째부터 표를 안 주는 것.
+  Fork B는 일단 모두에게 표를 주고, 창구에서 "죄송합니다, 앞에서 마감됐네요"라고 말하는 것.
+  A는 기계가 똑똑해야 하고(그리고 기계와 창구 장부가 어긋나면 안 되고), B는 헛걸음이 생긴다.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="ladder">
+  <div class="kicker">Part 3 · The Imagined Ladder</div>
+  <h2>예상 사다리 — <span class="it">v6a → v6c</span>, 큐가 점점 단단해진다</h2>
+  <p class="lede">phase 3-3의 사다리가 "락의 정합 범위"를 한 칸씩 넓혔다면(JVM → DB → Redis),
+  이번 사다리는 <em>큐의 생존 범위</em>를 넓힌다. 칸마다 무엇이 살아남고 무엇이 사라지는지가 등반의 서사다.
+  아래 구현 스케치는 전부 <span class="fcast">예측 <span class="dots">●●○</span></span> — 본 실행에서 형태가 바뀔 수 있다.</p>
+
+  <div class="axes">
+    <div class="axis"><div class="ax-n">i</div><h4>큐의 생존 범위</h4><p>큐가 어디에 사는가 — JVM 힙(앱이 죽으면 같이 죽음) → Redis(앱과 독립 생존).</p></div>
+    <div class="axis"><div class="ax-n">ii</div><h4>유실의 양상</h4><p>앱 사망 시 통째 증발 → 꺼낸 직후 사망분만 유실 → PEL에 남아 재전달.</p></div>
+    <div class="axis"><div class="ax-n">iii</div><h4>중복의 등장</h4><p>재전달이 생기는 순간 중복이 태어난다. 중복을 없애는 게 아니라 <em>무해하게</em> 만든다(멱등).</p></div>
+  </div>
+
+  <!-- v6a -->
+  <div class="ver">
+    <div class="ver-tag"><span class="vn">v6a</span><span class="badge scope">큐 = JVM 힙</span><span class="fcast">예측 <span class="dots">●●●</span></span></div>
+    <h3>@Async + 인메모리 스레드풀 — 일단 응답에서 처리를 떼어낸다</h3>
+    <div class="ver-sub">번호표 기계가 "메모장 한 장". 입구 직원이 요청을 메모해 두고 즉시 202, 뒷방 직원(풀 스레드)이 메모를 집어 처리한다.</div>
+    <p>가장 작은 한 걸음. 컨트롤러는 적재만 하고 202를 반환, <code>ThreadPoolTaskExecutor</code>가 처리를 맡는다.
+    이 칸의 목적은 성능이 아니라 <em>의미 변화의 체감</em>이다 — 성공 시그니처가 어떻게 깨지는지(§4 T3),
+    응답 p95가 어떻게 거짓말을 시작하는지(§4 T4)를 가장 싼 비용으로 관찰한다.</p>
+<pre class="code"><span class="cm">// 스케치 — 빈 분리로 self-invocation 회피 (P3, v2의 교훈 재사용)</span>
+<span class="kw">@Service</span> <span class="cm">// 파사드: 적재만</span>
+public class CouponIssueFacade {
+    public IssueTicket enqueue(Long couponId, Long userId) {
+        worker.processAsync(couponId, userId); <span class="cm">// 다른 빈 → 프록시 경유 보장</span>
+        return IssueTicket.accepted(...);      <span class="cm">// 202</span>
+    }
+}
+<span class="kw">@Service</span> <span class="cm">// 워커: 처리만</span>
+public class CouponIssueWorker {
+    <span class="kw">@Async</span>(<span class="st">"couponExecutor"</span>) <span class="cm">// 기본 executor 금지 — §4 T2</span>
+    public void processAsync(Long couponId, Long userId) { <span class="cm">// 내부에서 v3 경로 호출</span> }
+}</pre>
+    <div class="blocked"><b>이 칸이 못 하는 것:</b> 앱이 재시작하면 큐(스레드풀 대기열)가 통째로 증발한다.
+    202를 받은 사용자의 요청이 흔적 없이 사라진다 — at-most-once보다도 약하다. 다중 인스턴스에서는 큐가 인스턴스 수만큼 쪼개진다.</div>
+  </div>
+
+  <!-- v6b -->
+  <div class="ver">
+    <div class="ver-tag"><span class="vn">v6b</span><span class="badge scope">큐 = Redis List</span><span class="fcast">예측 <span class="dots">●●○</span></span></div>
+    <h3>LPUSH + BRPOP 워커 — 큐가 앱 밖으로 나간다</h3>
+    <div class="ver-sub">번호표 기계가 "중앙 서버"가 된다. 입구가 죽어도 이미 뽑힌 번호표는 살아 있다.</div>
+    <p>프로듀서는 <code>LPUSH</code>, 별도 워커 루프가 <code>BRPOP</code>으로 꺼내 처리한다.
+    앱 재시작에도 큐가 생존하고, 워커를 다른 프로세스로 떼어낼 수 있다 —
+    phase 3-3 백로그였던 <em>다중 인스턴스 실증</em>의 자연스러운 입구가 여기서 열린다.</p>
+    <div class="blocked"><b>이 칸이 못 하는 것:</b> <code>BRPOP</code>은 꺼내는 순간 큐에서 지운다. ack가 없다.
+    꺼낸 직후 ~ 커밋 전 사이에 워커가 죽으면 그 한 건은 유실된다(at-most-once 구간이 남음).
+    "유실되는 순간"을 의도적으로 재현해 기록하는 것이 이 칸의 핵심 실험이다.</div>
+  </div>
+
+  <!-- v6c -->
+  <div class="ver">
+    <div class="ver-tag"><span class="vn">v6c</span><span class="badge scope">큐 = Redis Stream</span><span class="fcast">예측 <span class="dots">●●○</span></span></div>
+    <h3>Stream + 컨슈머 그룹 — ack와 재전달, 그리고 중복의 탄생</h3>
+    <div class="ver-sub">부른 번호를 "처리 완료" 도장(XACK)으로 마감한다. 도장 없이 사라진 번호는 다른 창구가 회수한다.</div>
+    <p><code>XADD</code>로 적재, 컨슈머 그룹이 <code>XREADGROUP</code>으로 분배받아 처리 후 <code>XACK</code>.
+    컨슈머가 죽으면 메시지는 PEL에 남고, <code>XAUTOCLAIM</code>으로 다른 컨슈머가 회수한다 — 드디어 at-least-once.
+    그리고 그 대가로 <em>중복이 태어난다</em>: 처리는 끝났는데 XACK 직전에 죽으면, 같은 요청이 다시 배달된다.</p>
+<pre class="code"><span class="cm">-- 중복을 무해하게: DB가 멱등의 최후 방어선 (P5)</span>
+<span class="kw">ALTER TABLE</span> coupon_issue
+  <span class="kw">ADD CONSTRAINT</span> uq_coupon_user <span class="kw">UNIQUE</span> (coupon_id, user_id);
+<span class="cm">-- 재전달분은 INSERT 충돌 → "이미 발급됨"으로 흡수. 행 수는 절대 늘지 않는다.</span></pre>
+    <div class="blocked"><b>이 칸이 못 하는 것:</b> exactly-once는 여기서도 없다. 우리가 만든 것은
+    "유실 없음 + 중복은 DB 유니크 제약이 흡수"라는 조합이지, 마법이 아니다.
+    멱등 키가 없는 부수효과(알림 발송 등)는 여전히 중복될 수 있다 — 범위 밖으로 명시한다.</div>
+  </div>
+
+  <div class="tbl-scroll">
+  <table class="compare">
+    <tr><th>칸</th><th>큐의 생존</th><th>앱/워커 사망 시</th><th>중복</th><th>멱등 키</th><th>다중 인스턴스</th></tr>
+    <tr><td>v6a @Async</td><td>JVM 힙</td><td class="bad">대기분 전체 증발</td><td>없음</td><td>불필요</td><td class="bad">큐 분열</td></tr>
+    <tr><td>v6b List</td><td class="good">Redis</td><td class="bad">꺼낸 1건 유실 가능</td><td>없음</td><td>권장</td><td>가능(경쟁 BRPOP)</td></tr>
+    <tr><td class="pick">v6c Stream</td><td class="good">Redis</td><td class="good">PEL 재전달</td><td class="bad">가능</td><td class="good">필수(유니크)</td><td class="good">컨슈머 그룹</td></tr>
+  </table>
+  </div>
+  <p class="dim" style="font-size:13.5px">Kafka는 이 표의 오른쪽 끝에 자연스럽게 이어지는 칸이지만(파티션·오프셋·리밸런싱),
+  브로커 인프라가 새로 추가되는 비용이 커서 이번 phase 범위 밖 — 백로그로 명시한다. v6c까지가 "이미 떠 있는 Redis로 어디까지 가는가"의 끝이다.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="troubles">
+  <div class="kicker">Part 4 · Incidents That Haven't Happened</div>
+  <h2>일어나지 않은 사고들 — <span class="it">미리 쓰는</span> 트러블슈팅 일지</h2>
+  <p class="lede">phase 3-3의 발견들이 두 클래스로 수렴했던 것을 기억하자 —
+  <em>A. 버전관리·설정 밖의 암묵 의존</em>, <em>B. 정책 의존 해석의 측정 오독</em>.
+  아래 아홉 장은 그 분류 감각으로 미리 그려본 사고 예보다. 카드마다 확신도와, 본 실행 후 채점할 빈 칸을 두었다.</p>
+
+  <div class="trouble">
+    <div class="t-head"><span class="tn">T1</span><h3 style="margin:0">비동기인 줄 알았는데 동기였다</h3><span class="fcast">예측 <span class="dots">●●●</span></span></div>
+    <div class="t-grid">
+      <div class="tk">예상 증상</div><div class="tv">202는 반환되는데 응답시간이 동기 시절과 같다. 부하를 걸어도 큐 깊이가 항상 0.</div>
+      <div class="tk">예상 원인</div><div class="tv">self-invocation(P3) — 같은 빈 안에서 <code>this.processAsync()</code> 호출, 프록시 미경유. 또는 <code>@EnableAsync</code> 누락.</div>
+      <div class="tk">예상 대응</div><div class="tv">파사드/워커 <b>빈 분리</b>를 처음부터 설계에 박는다(v2의 교훈 그대로). 부팅 시 executor 빈 존재를 assert.</div>
+      <div class="tk">검증 방법</div><div class="tv">처리 스레드명 로깅 — <code>http-nio-*</code>면 동기, <code>couponExecutor-*</code>면 비동기. 스모크 런 게이트에 포함.</div>
+    </div>
+    <div class="t-slot"><b>실측 후 기입</b> — 실제로 밟았나? 어느 형태로? : ________</div>
+  </div>
+
+  <div class="trouble">
+    <div class="t-head"><span class="tn">T2</span><h3 style="margin:0">기본 스레드풀의 두 얼굴 — 무한 스레드 아니면 무한 큐</h3><span class="fcast">예측 <span class="dots">●●●</span></span></div>
+    <div class="t-grid">
+      <div class="tk">예상 증상</div><div class="tv">설정 없이 돌리면: 스레드 수가 요청 수만큼 폭증(기본 SimpleAsyncTaskExecutor 계열), 또는 executor를 만들되 큐를 무제한으로 두면 힙이 조용히 부푼다.</div>
+      <div class="tk">예상 원인</div><div class="tv">P2의 함정 — core/max/queue를 핀하지 않으면 "큐가 차야 max 증원" 정책과 기본값이 예상 밖 동작을 만든다.</div>
+      <div class="tk">예상 대응</div><div class="tv">executor를 <b>명시 핀</b>: core·max·queueCapacity·거부 정책을 문서 핀 + 런타임 assert(phase 3-3의 핀 방식 계승).</div>
+      <div class="tk">검증 방법</div><div class="tv">부하 중 스레드 수·큐 사이즈를 메트릭으로 노출, 핀 값과 대조.</div>
+    </div>
+    <div class="t-slot"><b>실측 후 기입</b> — 기본값이 실제로 보인 행동: ________</div>
+  </div>
+
+  <div class="trouble">
+    <div class="t-head"><span class="tn">T3</span><h3 style="margin:0">하네스 성공 시그니처의 붕괴 — "응답 직후 행 수"는 거짓이 된다</h3><span class="fcast">예측 <span class="dots">●●●</span></span></div>
+    <div class="t-grid">
+      <div class="tk">예상 증상</div><div class="tv">기존 하네스 판정(부하 종료 직후 <code>coupon_issue</code> 행 수 == 100)이 비동기에서 FAIL — 아직 컨슈머가 소비 중이라 행 수가 100 미만.</div>
+      <div class="tk">예상 원인</div><div class="tv">구조적 필연(P1·P8). 버그가 아니라 <b>판정 시점의 의미가 바뀐 것</b> — 측정 오독 클래스 B의 전형이 될 후보.</div>
+      <div class="tk">예상 대응</div><div class="tv">하네스에 <b>수렴 게이트</b> 추가: 큐 깊이 0 && 행 수 안정(연속 N회 동일)까지 폴링 후 판정. 타임아웃을 두고 미수렴은 별도 FAIL 사유로 분류.</div>
+      <div class="tk">검증 방법</div><div class="tv">수렴 시간 자체를 기록 지표로 승격 — "언제 100이 되는가"가 이번 phase의 데이터다.</div>
+    </div>
+    <div class="t-slot"><b>실측 후 기입</b> — 수렴 게이트 최종 형태 / 수렴 시간: ________</div>
+  </div>
+
+  <div class="trouble">
+    <div class="t-head"><span class="tn">T4</span><h3 style="margin:0">숫자 착시 — 접수 처리량을 "성능 개선"으로 읽는 오독</h3><span class="fcast">예측 <span class="dots">●●●</span></span></div>
+    <div class="t-grid">
+      <div class="tk">예상 증상</div><div class="tv">k6 리포트의 RPS가 치솟고 p95가 곤두박질친다. 그래프만 보면 시스템이 극적으로 빨라진 것처럼 보인다.</div>
+      <div class="tk">예상 원인</div><div class="tv">측정 대상이 바뀌었다 — 그 숫자는 "발급 처리량"이 아니라 <b>"접수 처리량"</b>이다(P8). 일은 큐 뒤로 미뤄졌을 뿐.</div>
+      <div class="tk">예상 대응</div><div class="tv">phase 3-3의 비교 금지 규율을 계승·확장: <b>v3 응답 p95 ↔ v6 응답 p95 직접 비교 금지</b>. 합법 비교는 정확성(행 수)과 E2E 발급 지연뿐. 분석 문서에 규율 조항으로 명문화.</div>
+      <div class="tk">검증 방법</div><div class="tv">같은 런에서 "응답 p95"와 "E2E p95"를 나란히 적어 괴리 자체를 전시한다 — 괴리가 이 phase의 교훈이다.</div>
+    </div>
+    <div class="t-slot"><b>실측 후 기입</b> — 응답 p95 vs E2E p95 실제 괴리: ________</div>
+  </div>
+
+  <div class="trouble">
+    <div class="t-head"><span class="tn">T5</span><h3 style="margin:0">컨슈머의 죽음 — 유실(v6b)과 고아 메시지(v6c)</h3><span class="fcast">예측 <span class="dots">●●○</span></span></div>
+    <div class="t-grid">
+      <div class="tk">예상 증상</div><div class="tv">v6b: 워커 강제 종료 후 재기동하면 합계가 모자란다(꺼낸 1건 증발). v6c: 죽은 컨슈머에게 배정된 메시지가 PEL에 멈춰 영원히 처리되지 않는다.</div>
+      <div class="tk">예상 원인</div><div class="tv">v6b는 ack 부재(P4). v6c는 재전달이 <b>자동이 아니라는 것</b> — 누군가 XAUTOCLAIM으로 회수해야 한다.</div>
+      <div class="tk">예상 대응</div><div class="tv">v6b에선 유실을 고치지 않고 <b>재현·기록</b>한다(그게 v6c로 가는 근거). v6c에선 주기적 회수 루프 + 최소 idle 시간을 핀.</div>
+      <div class="tk">검증 방법</div><div class="tv">"처리 중 kill" 시나리오를 하네스에 카오스 스텝으로 추가 — 죽이는 시점(꺼낸 직후 / 커밋 직후 / XACK 직전)을 변수로.</div>
+    </div>
+    <div class="t-slot"><b>실측 후 기입</b> — kill 시점별 실제 결과: ________</div>
+  </div>
+
+  <div class="trouble">
+    <div class="t-head"><span class="tn">T6</span><h3 style="margin:0">중복 발급 — at-least-once의 청구서</h3><span class="fcast">예측 <span class="dots">●●○</span></span></div>
+    <div class="t-grid">
+      <div class="tk">예상 증상</div><div class="tv">v6c에서 XACK 직전 사망 → 재전달 → 같은 (coupon, user) 발급 시도 2회. 멱등 없으면 행 수 &gt; 100 — <b>초과발급의 부활</b>.</div>
+      <div class="tk">예상 원인</div><div class="tv">P5의 필연. 재전달이 있는 한 중복은 "버그"가 아니라 "약속된 손님"이다.</div>
+      <div class="tk">예상 대응</div><div class="tv"><code>UNIQUE(coupon_id, user_id)</code>를 최후 방어선으로, 충돌은 "이미 발급됨"으로 정상 흡수. 진실 소스는 여전히 행 수 하나(규율 유지).</div>
+      <div class="tk">검증 방법</div><div class="tv">의도적 재전달 주입 후 행 수==100 && 유니크 충돌 로그 ≥ 1 확인 — 충돌 로그가 <b>방어가 작동한 증거</b>다.</div>
+    </div>
+    <div class="t-slot"><b>실측 후 기입</b> — 재전달 주입 결과: ________</div>
+  </div>
+
+  <div class="trouble">
+    <div class="t-head"><span class="tn">T7</span><h3 style="margin:0">초과 적재와 늦은 거절 — 202 받고 탈락하는 사람들</h3><span class="fcast">예측 <span class="dots">●●○</span></span></div>
+    <div class="t-grid">
+      <div class="tk">예상 증상</div><div class="tv">Fork B에서 999명 적재 → 100명 발급, 899명은 한참 뒤 "실패"로 수렴. 큐 깊이와 수렴 시간이 수요에 비례해 자란다(P7).</div>
+      <div class="tk">예상 원인</div><div class="tv">출구 판정의 구조적 비용 — 거절이 입구에서 출구로 이연된 것.</div>
+      <div class="tk">예상 대응</div><div class="tv">발급 상태 모델(접수→발급/소진)과 조회 API를 1급 산출물로. 큐 깊이 상한 + 초과 시 입구 거절(유한 큐)을 옵션 실험으로.</div>
+      <div class="tk">검증 방법</div><div class="tv">"마지막 탈락자가 결과를 알기까지" 시간을 별도 지표로 — 이것이 Fork A를 다시 부르는 근거가 될 수 있다.</div>
+    </div>
+    <div class="t-slot"><b>실측 후 기입</b> — 탈락 통보 지연 실측: ________</div>
+  </div>
+
+  <div class="trouble">
+    <div class="t-head"><span class="tn">T8</span><h3 style="margin:0">우아하지 않은 종료 — 배포할 때마다 1건씩 사라진다면</h3><span class="fcast">예측 <span class="dots">●○○</span></span></div>
+    <div class="t-grid">
+      <div class="tk">예상 증상</div><div class="tv">재시작·배포 시점에만 간헐적으로 합계가 어긋난다. 재현이 어렵고 로그가 끊겨 있다.</div>
+      <div class="tk">예상 원인</div><div class="tv">종료 시 in-flight 작업(꺼냈지만 미커밋)이 중단 — graceful shutdown 미설정.</div>
+      <div class="tk">예상 대응</div><div class="tv">executor·워커 루프에 종료 대기(타임아웃 핀)를 설정. v6c라면 PEL 회수가 안전망이 되어 심각도가 내려간다.</div>
+      <div class="tk">검증 방법</div><div class="tv">처리 중 정상 종료(SIGTERM) 시나리오를 카오스 스텝에 추가, kill -9와 결과 비교.</div>
+    </div>
+    <div class="t-slot"><b>실측 후 기입</b> — SIGTERM vs kill -9 결과 차이: ________</div>
+  </div>
+
+  <div class="trouble">
+    <div class="t-head"><span class="tn">T9</span><h3 style="margin:0">순서의 환상 — 큐인데 선착순이 아니다?</h3><span class="fcast">예측 <span class="dots">●○○</span></span></div>
+    <div class="t-grid">
+      <div class="tk">예상 증상</div><div class="tv">컨슈머를 2개 이상으로 늘리면 적재 순서와 커밋 순서가 어긋난다. 101번째 적재자가 99번째 적재자보다 먼저 발급받을 수 있다.</div>
+      <div class="tk">예상 원인</div><div class="tv">분배는 순서대로여도 <b>처리 완료는 병렬</b>이라 순서가 깨진다 — 큐가 보장하는 건 분배 순서까지다.</div>
+      <div class="tk">예상 대응</div><div class="tv">"선착순"의 정의를 문서로 박는다: 이 실험에서 공정성 기준은 <b>적재 순서가 아니라 발급 성공 여부</b>(100명 안에 들었는가). 엄밀한 순서가 필요하면 단일 컨슈머/파티션 키가 답이지만 범위 밖으로 명시.</div>
+      <div class="tk">검증 방법</div><div class="tv">적재 시퀀스 vs 커밋 시퀀스의 역전 횟수를 세어 기록 — 숨기지 않고 전시.</div>
+    </div>
+    <div class="t-slot"><b>실측 후 기입</b> — 역전 발생 양상: ________</div>
+  </div>
+
+  <div class="trap"><span class="mk">예보의 한계.</span>
+  phase 3-3의 진짜 발견들(gradle-wrapper 부재, fresh-volume 스키마 0개…)은 전부 <em>예보에 없던</em> 것들이었다.
+  이 아홉 장이 다 맞아도 자만 금지, 다 빗나가도 문서 실패가 아니다 — 예보와 실측의 <em>차이 자체</em>가 회고의 재료다.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="measure">
+  <div class="kicker">Part 5 · Measurement Plan</div>
+  <h2>숫자를 <span class="it">어떻게</span> 잴 것인가 — 지표가 네 개로 늘어난다</h2>
+  <p class="lede">phase 3-3 측정 규율의 핵심은 "무엇과 무엇을 비교해도 되는가"를 미리 정하는 것이었다.
+  이번엔 한 단계 앞이 필요하다 — <em>애초에 무엇을 재야 하는가</em>부터 다시 정한다.</p>
+
+  <h3>새 지표 4종 <span class="fcast" style="vertical-align:2px">예측 <span class="dots">●●●</span></span></h3>
+  <div class="ledger-card">
+    <div class="lc-title">Phase 3-4 Instrument Panel</div>
+    <div class="ledger-rows">
+      <div class="lrow"><span class="k">① 접수 처리량 — 입구가 초당 몇 건 받는가 (기존 RPS의 새 이름)</span><span class="v">req/s</span></div>
+      <div class="lrow"><span class="k">② 발급 완료 처리량 — 컨슈머가 초당 몇 건 커밋하는가</span><span class="v">commit/s</span></div>
+      <div class="lrow"><span class="k">③ E2E 발급 지연 — 적재 시각 → 커밋 시각 (진짜 체감 지연)</span><span class="v">p50 / p95</span></div>
+      <div class="lrow"><span class="k">④ 큐 깊이 & 수렴 시간 — ①−②의 적분, 그리고 마지막 커밋까지</span><span class="v">depth(t), T<sub>conv</sub></span></div>
+    </div>
+  </div>
+  <p>①은 치솟고 ③·④가 그 청구서를 받는 구조다(T4). 그래서 분석 문서에는 반드시 ①과 ③을 <em>나란히</em> 적는다.</p>
+
+  <h3>백프레셔 시뮬레이터 — 출발 전 손가락 체조</h3>
+  <p class="dim" style="font-size:14px">적재율과 소비율을 정하고 1초씩 흘려 보자. 큐 깊이는 두 속도의 <em>차이가 쌓인 값</em>일 뿐이라는 감각 —
+  이게 ④번 지표를 읽는 눈이다. (아래 숫자는 전부 가상의 손가락 체조이지 측정이 아니다.)</p>
+  <div class="sim">
+    <div class="sim-head">
+      <div class="t">번호표 기계 시뮬레이터</div>
+      <div class="sim-btns">
+        <button id="bp-step" class="primary">1초 흐르기</button>
+        <button id="bp-step5">5초 흐르기</button>
+        <button id="bp-reset">리셋</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:22px;flex-wrap:wrap;margin-bottom:14px;font-size:13.5px">
+      <label>적재율 <input id="bp-in" type="range" min="50" max="500" step="50" value="300" style="vertical-align:middle"> <span id="bp-in-v" class="hl" style="font-family:var(--mono)">300</span>/s</label>
+      <label>소비율 <input id="bp-out" type="range" min="50" max="500" step="50" value="100" style="vertical-align:middle"> <span id="bp-out-v" style="font-family:var(--mono)">100</span>/s</label>
+    </div>
+    <div style="height:14px;background:var(--inset);border:1px solid var(--rule-soft);border-radius:7px;overflow:hidden;margin-bottom:12px">
+      <div id="bp-bar" style="height:100%;width:0%;background:var(--gold);transition:width .25s"></div>
+    </div>
+    <div class="sim-ledger">
+      <div class="cell"><span class="cl">경과</span><span class="cv" id="bp-t">0s</span></div>
+      <div class="cell"><span class="cl">큐 깊이</span><span class="cv" id="bp-depth">0</span></div>
+      <div class="cell"><span class="cl">예상 대기 (깊이÷소비율)</span><span class="cv" id="bp-wait">0.0s</span></div>
+    </div>
+    <div class="sim-msg" id="bp-msg">속도 차이 +200/s — 흐르게 해 보면 깊이가 1초마다 200씩 자란다.</div>
+  </div>
+
+  <h3>통제변수 — 핀은 늘어난다, 방식은 같다</h3>
+  <p>기존 핀(Hikari 10, Tomcat 200, 락 타임아웃, 부하 프로필)은 전부 유지하고, 신규 핀을 얹는다:
+  <em>executor core/max/queue, 컨슈머 수, 폴링/블로킹 간격, (v6c) 회수 최소 idle, 큐 용량 상한</em>.
+  핀 방식은 phase 3-3 그대로 — 문서 핀 + 하네스 시작 시 런타임 assert. <span class="fcast">예측 <span class="dots">●●●</span></span></p>
+
+  <h3>비교 규율 — 무엇이 합법인가</h3>
+  <div class="note"><span class="mk">규율.</span>
+  ① <b>v3 응답 p95 ↔ v6 응답 p95 직접 비교 금지</b> — 의미가 다른 숫자다(접수 vs 처리).
+  ② 합법 비교는 <b>정확성(수렴 후 행 수 100, 중복 0)</b>과 <b>E2E 발급 지연·수렴 시간</b>.
+  ③ v6a↔v6b↔v6c 간 비교도 큐 매체가 바뀌므로 throughput 헤드라인 금지 — 서사는 3축(생존·유실·중복)으로 쓴다.
+  phase 3-3에서 throughput 헤드라인을 스스로 폐기했던 결정을, 이번엔 <em>사전에</em> 박아두는 것이다.</div>
+
+  <h3>성공 시그니처 재정의 <span class="fcast" style="vertical-align:2px">예측 <span class="dots">●●●</span></span></h3>
+<pre class="code"><span class="cm"># 기존 (동기): 부하 종료 직후</span>
+rows(coupon_issue) == 100 && issued_counter == 100
+
+<span class="cm"># 신규 (비동기): 수렴 게이트 통과 후</span>
+converged := queue_depth == 0 && rows 안정(연속 3회 동일)   <span class="cm"># 타임아웃 핀</span>
+converged && rows(coupon_issue) == 100
+          && duplicate_violations 로그 ≥ 0 (v6c: ≥1이어도 행 수만 지키면 PASS)
+          && 202_count ≥ rows  <span class="cm"># 접수가 발급보다 적으면 적재 유실 의심</span></pre>
+</section>
+
+<!-- ============================================================ -->
+<section id="process">
+  <div class="kicker">Part 6 · The Way We Work</div>
+  <h2>진행 방식 — 검증된 파이프라인을 <span class="it">그대로</span> 다시 탄다</h2>
+  <p class="lede">phase 3-3에서 정련한 작업 패턴은 이번 phase의 가장 큰 자산이다. 새로 발명하지 않는다.</p>
+
+  <div class="ledger-card">
+    <div class="lc-title">Expected Flow <span class="fcast" style="vertical-align:1px">예측 <span class="dots">●●○</span></span></div>
+    <div class="ledger-rows">
+      <div class="lrow"><span class="k">Step 0 — 스펙 작성: Fork 결정 게이트, v6 사다리 범위, 핀 목록, 성공 시그니처, 비교 규율 명문화</span><span class="v">specs/</span></div>
+      <div class="lrow"><span class="k">Step 1 — 샌드박스 리허설: 상설 리허설 랩(워크트리)에서 콜드 세션, 버전당 1세션</span><span class="v">sandbox</span></div>
+      <div class="lrow"><span class="k">Step 2 — 하네스 개조가 1순위: 수렴 게이트(T3) 없이는 어떤 런도 판정 불가</span><span class="v">harness</span></div>
+      <div class="lrow"><span class="k">Step 3 — 핸드오프 묶음: 검증 하네스 + 개정 스펙 + 전이 트랩 + 핀 → teardown → 포트 free</span><span class="v">handoff/</span></div>
+      <div class="lrow"><span class="k">Step 4 — 본 실행: 게이트(포트 free → 스키마+스모크 → 핀 대조) 통과 후 사다리 재실행</span><span class="v">main repo</span></div>
+      <div class="lrow"><span class="k">Step 5 — 회고: 이 문서를 꺼내 ●표 채점 + 빈 칸 기입 → 사후 자료로 개정</span><span class="v">docs/reports</span></div>
+    </div>
+  </div>
+
+  <div class="trap"><span class="mk">운영 주의 (계승).</span>
+  샌드박스가 3306·6379를 잡는다 — 본 레포 인프라를 띄우기 전 샌드박스 컨테이너는 내린다.
+  새 워크트리/콜드 세션에서는 phase 3-3 발견 클래스 A(버전관리 밖 산출물 의존: wrapper jar, 스키마 볼륨)가 그대로 재발할 수 있다 —
+  TRANSFERABLE-TRAPS를 첫 화면에 둔다.</div>
+
+  <p>그리고 한 가지 새 요소 — <em>카오스 스텝</em>. T5·T6·T8은 자연 발생을 기다리는 게 아니라 의도적으로 죽여서(컨슈머 kill, 재전달 주입) 만든다.
+  "사고를 재현 가능한 실험으로 격상"하는 것이 이번 하네스의 신규 챕터다. <span class="fcast">예측 <span class="dots">●●○</span></span></p>
+</section>
+
+<!-- ============================================================ -->
+<section id="checklist">
+  <div class="kicker">Part 7 · Pre-flight Check</div>
+  <h2>출발 전 점검 — 이 열 개에 <span class="it">막힘없이</span> 답할 수 있는가</h2>
+  <p class="lede">코드를 열기 전 자기 점검이자, 그대로 면접 카드가 되는 질문들. 답이 막히면 해당 섹션으로 돌아간다.</p>
+
+  <div class="check">
+    <div class="ci"><span class="cn">1</span><span class="cq">202를 받은 사용자는 발급 여부를 어떻게 알게 되는가?<span class="hint">→ P1, T7. 상태 모델·조회 경로 없는 202는 미완성이다.</span></span></div>
+    <div class="ci"><span class="cn">2</span><span class="cq">@Async가 조용히 동기로 도는 두 가지 경로는?<span class="hint">→ P3, T1. self-invocation, @EnableAsync 누락.</span></span></div>
+    <div class="ci"><span class="cn">3</span><span class="cq">스레드풀에서 max보다 큐가 먼저 차는 이유를 설명할 수 있는가?<span class="hint">→ P2, T2. core → queue → max 순서.</span></span></div>
+    <div class="ci"><span class="cn">4</span><span class="cq">BRPOP과 XREADGROUP의 결정적 차이 한 가지는?<span class="hint">→ P6. 꺼내면 사라짐 vs PEL에 남고 XACK로 마감.</span></span></div>
+    <div class="ci"><span class="cn">5</span><span class="cq">exactly-once가 끝단에서 환상인 이유는?<span class="hint">→ P5. 브로커 전달과 DB 커밋은 한 원자 단위가 아니다.</span></span></div>
+    <div class="ci"><span class="cn">6</span><span class="cq">중복 발급의 최후 방어선은 어디에, 무엇으로 거는가?<span class="hint">→ T6. DB UNIQUE(coupon_id, user_id) — 진실 소스 곁에.</span></span></div>
+    <div class="ci"><span class="cn">7</span><span class="cq">비동기 전환 후 k6 p95가 폭락하면 무엇을 의심해야 하는가?<span class="hint">→ T4. 성능 개선이 아니라 측정 대상이 바뀐 것.</span></span></div>
+    <div class="ci"><span class="cn">8</span><span class="cq">큐 깊이가 계속 자라면 가장 먼저 볼 두 숫자는?<span class="hint">→ P7, §5. 적재율과 소비율 — 깊이는 그 차의 적분.</span></span></div>
+    <div class="ci"><span class="cn">9</span><span class="cq">기존 하네스 판정이 비동기에서 왜 거짓 FAIL을 내는가?<span class="hint">→ T3. 판정 시점에 아직 수렴 전 — 수렴 게이트가 필요.</span></span></div>
+    <div class="ci"><span class="cn">10</span><span class="cq">이번 실험에서 "선착순"의 공정성 기준을 한 문장으로 정의하면?<span class="hint">→ T9. 적재 순서가 아니라 발급 성공 여부로 정의(범위 명시).</span></span></div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="glossary">
+  <div class="kicker">Appendix</div>
+  <h2>용어 정리</h2>
+  <div class="glossary">
+    <div class="gl-item"><div class="gt">202 Accepted</div><div class="gd">요청을 접수했고 처리는 나중에 한다는 HTTP 상태코드. 성공도 실패도 아직 보장하지 않는다 — 결과는 별도 경로로.</div></div>
+    <div class="gl-item"><div class="gt">최종 일관성 (eventual consistency)</div><div class="gd">갱신 직후엔 보는 위치마다 값이 다를 수 있지만, 새 갱신이 없으면 결국 한 값으로 수렴하는 일관성 모델.</div></div>
+    <div class="gl-item"><div class="gt">프로듀서 / 브로커 / 컨슈머</div><div class="gd">메시지를 넣는 쪽 / 보관·분배하는 쪽 / 꺼내 처리하는 쪽. 큐가 프로세스 밖으로 나가면 역할이 이렇게 갈린다.</div></div>
+    <div class="gl-item"><div class="gt">ack</div><div class="gd">"처리 끝났음"을 브로커에 알리는 확인 신호. "꺼냈다"와 "끝냈다"를 분리하는 장치.</div></div>
+    <div class="gl-item"><div class="gt">at-most-once / at-least-once</div><div class="gd">최대 한 번(유실 가능, 중복 없음) / 최소 한 번(유실 없음, 중복 가능). 실무 기본값은 후자 + 멱등 처리.</div></div>
+    <div class="gl-item"><div class="gt">멱등성 (idempotency)</div><div class="gd">같은 요청을 여러 번 수행해도 한 번 한 것과 결과가 같은 성질. 중복 전달을 무해하게 만든다.</div></div>
+    <div class="gl-item"><div class="gt">컨슈머 그룹 / PEL / XACK / XAUTOCLAIM</div><div class="gd">Redis Stream의 분배 단위 / 배정됐지만 미완료인 메시지 목록 / 완료 도장 / 죽은 컨슈머의 미완료분 회수 명령.</div></div>
+    <div class="gl-item"><div class="gt">백프레셔 (backpressure)</div><div class="gd">소비 속도를 넘는 유입을 생산자 쪽으로 되밀어 감속·거절시키는 흐름 제어.</div></div>
+    <div class="gl-item"><div class="gt">큐 깊이 / E2E 발급 지연 / 수렴 시간</div><div class="gd">쌓여 있는 미처리 건수 / 적재→커밋 전 구간 지연 / 마지막 발급 커밋까지 걸린 시간. 비동기 측정의 3대 신규 지표.</div></div>
+    <div class="gl-item"><div class="gt">graceful shutdown</div><div class="gd">종료 신호를 받으면 새 일은 안 받고 진행 중인 일은 끝내고 내려가는 종료 방식.</div></div>
+    <div class="gl-item"><div class="gt">self-invocation</div><div class="gd">빈 내부에서 this로 자기 메서드를 호출하는 것. 프록시를 건너뛰어 @Async·@Transactional이 무력화된다.</div></div>
+    <div class="gl-item"><div class="gt">DLQ (dead letter queue)</div><div class="gd">반복 실패한 메시지를 격리 보관하는 별도 큐. 이번 범위 밖이지만 v6c 다음 칸의 단골 손님.</div></div>
+  </div>
+</section>
+
+<footer>
+  Flashdeal Lab Notes — Phase 3-4 Pre-flight Expedition Map<br>
+  실측 표기는 phase 3-3 동결본(analysis.md)만 인용. 그 외 모든 수치·시나리오는 예측이며, 본 실행 후 이 문서는 채점되어 사후 회고로 개정된다.
+</footer>
+
+</div>
+
+<div id="term-pop"></div>
+
+<script>
+/* ---------- glossary popover (phase 3-3 자료에서 계승) ---------- */
+(function(){
+  var pop = document.getElementById('term-pop');
+  var current = null;
+  function show(t){
+    pop.innerHTML = '<div class="tp-t">'+t.dataset.term+'</div>'+t.dataset.def;
+    pop.style.display='block';
+    var r = t.getBoundingClientRect();
+    var top = r.bottom + window.scrollY + 8;
+    var left = r.left + window.scrollX;
+    var maxLeft = window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 16;
+    pop.style.top = top+'px';
+    pop.style.left = Math.max(window.scrollX+12, Math.min(left, maxLeft))+'px';
+    current = t;
+  }
+  function hide(){ pop.style.display='none'; current=null; }
+  document.querySelectorAll('dfn.term').forEach(function(t){
+    t.addEventListener('mouseenter', function(){ show(t); });
+    t.addEventListener('mouseleave', hide);
+    t.addEventListener('click', function(e){
+      e.stopPropagation();
+      if(current===t){ hide(); } else { show(t); }
+    });
+  });
+  document.addEventListener('click', function(e){ if(!pop.contains(e.target)) hide(); });
+  window.addEventListener('scroll', function(){ if(current) hide(); }, {passive:true});
+})();
+
+/* ---------- backpressure simulator ---------- */
+(function(){
+  var t=0, depth=0;
+  var inR=document.getElementById('bp-in'), outR=document.getElementById('bp-out');
+  var inV=document.getElementById('bp-in-v'), outV=document.getElementById('bp-out-v');
+  var tEl=document.getElementById('bp-t'), dEl=document.getElementById('bp-depth'),
+      wEl=document.getElementById('bp-wait'), bar=document.getElementById('bp-bar'),
+      msg=document.getElementById('bp-msg');
+  var MAXBAR=3000;
+  function refreshLabels(){
+    inV.textContent=inR.value; outV.textContent=outR.value;
+    var diff=inR.value-outR.value;
+    if(depth===0) msg.innerHTML='속도 차이 '+(diff>0?'+':'')+diff+'/s — 흐르게 해 보면 깊이가 1초마다 '+Math.abs(diff)+'씩 '+(diff>0?'자란다':'줄어든다(0 아래로는 안 감)')+'.';
+  }
+  function render(){
+    tEl.textContent=t+'s'; dEl.textContent=depth.toLocaleString();
+    var wait=depth/Number(outR.value);
+    wEl.textContent=wait.toFixed(1)+'s';
+    bar.style.width=Math.min(100, depth/MAXBAR*100)+'%';
+    bar.style.background = depth>MAXBAR*0.7 ? 'var(--red)' : 'var(--gold)';
+    if(depth>0){
+      var diff=inR.value-outR.value;
+      if(diff>0) msg.innerHTML='적재가 소비를 앞선다 — 큐는 폭주를 막는 게 아니라 <b>지연으로 바꿔 뒤로 미루는 중</b>. 지금 줄 끝에 서면 약 '+wait.toFixed(1)+'초 뒤에 처리된다.';
+      else if(diff<0) msg.innerHTML='소비가 적재를 앞선다 — 깊이가 빠지는 중. 수렴(깊이 0)이 보인다.';
+      else msg.innerHTML='속도가 같다 — 깊이는 더 안 자라지만, <b>이미 쌓인 대기는 저절로 사라지지 않는다</b>.';
+    }
+  }
+  function step(n){
+    for(var i=0;i<n;i++){ t++; depth=Math.max(0, depth + Number(inR.value) - Number(outR.value)); }
+    render();
+  }
+  document.getElementById('bp-step').addEventListener('click', function(){ step(1); });
+  document.getElementById('bp-step5').addEventListener('click', function(){ step(5); });
+  document.getElementById('bp-reset').addEventListener('click', function(){ t=0; depth=0; render(); refreshLabels(); });
+  inR.addEventListener('input', function(){ refreshLabels(); if(depth>0) render(); });
+  outR.addEventListener('input', function(){ refreshLabels(); if(depth>0) render(); });
+  refreshLabels(); render();
+})();
+
+/* ---------- toc active state ---------- */
+(function(){
+  var links=document.querySelectorAll('.toc a');
+  var ids=Array.prototype.map.call(links, function(a){ return a.getAttribute('href').slice(1); });
+  function onScroll(){
+    var y=window.scrollY+120, active=ids[0];
+    ids.forEach(function(id){ var el=document.getElementById(id); if(el && el.offsetTop<=y) active=id; });
+    links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+active); });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+})();
+</script>
+</body>
+</html>

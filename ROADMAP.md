@@ -8,12 +8,12 @@
 
 ## Now — 진행 중
 
-- **[시나리오 ④] 동시성 제어 — 쿠폰 발급 분산 락** — `phase/3-3-concurrency-lock` (브랜치 생성 완료)
-  - 목적: 쿠폰 발급 시 동시성 문제(중복/초과 발급)를 단계별로 재현·해결하고 처리량·정합성 측정
-  - 단계: **v1** no lock(baseline) → **v2** synchronized → **v3** SELECT FOR UPDATE → **v4** Redis 분산 락
-  - 엔티티: `Coupon`, `CouponIssue`(`couponId`/`userId`만, 관계 없음 — phase2에서 정의 완료)
-  - **현재 상태**: 브랜치 생성 + **스펙 초안 작성됨**(`specs/phase3-3-concurrency-draft.md`, refine 중). 다른 세션 정돈 + audit-doc 검증 후 `-draft` 떼고 확정 → 구현 착수
-  - 의존: 동시성 스펙 확정 선행
+- **[시나리오 ④ / 검증] 다중 인스턴스 정합 실증 (보강#1)** — `phase/3-3-multi-instance` (브랜치 생성 완료)
+  - 목적: 현재 단일 JVM 측정으론 **미실증(개념적 보장)**인 다중 인스턴스 정합을 **실측으로 승격**. phase3-3 결론(v3 채택)을 *반증이 아니라 강화*하는 실험
+  - 구성: 동일 phase3-3 동시성 락 코드(v1~v5) 그대로, 토폴로지만 다중 인스턴스로. 기존 하네스(`coupon-test.js` 등) 무수정 재사용
+  - 기대 결과(가설): **v2(synchronized) 붕괴**(JVM 로컬 모니터 → 초과발급 재발) + **v3~v5 경계초월 정합 유지**(공유 DB 행/공유 Redis). → "다중서버 = Redis 분산락 필요"가 아니라 "공유 좌표 필요, 그건 v3가 이미 줌"을 데이터로 확정
+  - 효과: `analysis.md §한계`·회고 §8·이력서/포폴의 "단일 JVM 미실증" 정직성 꼬리표를 **떼고** "다중 인스턴스 정합 실증"으로 승격
+  - **선행 작업**(실제 비용은 모니터링이 아니라 토폴로지): 앱 Docker 이미지화 + compose에 N replica + Nginx LB(현재 앱은 호스트에서 1개로 구동, compose에 app 서비스 없음) + Prometheus 타깃 N개로 확장
 
 ---
 
@@ -22,9 +22,6 @@
 - **[정리] k6 결과 phase 디렉터리 재배치 PR 머지** — PR [#7](https://github.com/data-sy/high-traffic-performance-tuning/pull/7) (`chore/reorg-k6-results`)
   - 재배치 커밋(`d3fd12b`)이 별도 브랜치에 파킹됨. main 보호 규칙(PR 필수)으로 직접 push 불가 → PR로만 머지
   - 머지 후 작업 브랜치들이 새 결과 레이아웃(`results/phaseN-*/k6/`)을 따라가도록 동기화
-- **[문서] 동시성 스펙 확정** — `specs/phase3-3-concurrency-draft.md` → refine 후 `-draft` 제거
-  - 초안 작성 완료. 다른 세션에서 정돈 + adapted `/audit-doc`로 검증 후 확정
-  - 미해결 결정: v4 Redis 락 방식(SET NX+Lua vs Lua 카운터), 분산환경(Docker 3인스턴스+Nginx) 포함 여부, Fallback/서킷브레이커 포함 여부 (초안 "보강 후보" 섹션 참조)
 ---
 
 ## Later — 백로그 (아직 미착수, 검토 단계)
@@ -49,6 +46,11 @@
 
 날짜·PR 번호는 git history 기준. 상세 변경 내역은 각 PR 또는 `specs/` 해당 phase 스펙 참조.
 
+- **[시나리오 ④] 동시성 제어 — 쿠폰 발급 락 사다리** — 2026-06-08 (PR [#8](https://github.com/data-sy/high-traffic-performance-tuning/pull/8), [#9](https://github.com/data-sy/high-traffic-performance-tuning/pull/9), `phase/3-3-concurrency-lock`)
+  - **v1** no lock(초과 999 재현) → **v2** synchronized → **v3** SELECT FOR UPDATE(★ 프로덕션 채택) → **v4** Redisson RLock → **v5** 커스텀 SET NX+Lua, + fencing 스톨 데모
+  - 워크로드 적합성으로 v3 채택(락↔데이터 동치 → fencing 무공백). throughput 버전 간 직접 비교 금지 규율, 통제변수 핀, 503 ⓐ/ⓑ/ⓒ 분류
+  - 결과: `results/phase3-3-concurrency/`(analysis.md 동결), 회고 `docs/reports/phase3-3-concurrency-lock.md`, 스펙 `specs/phase3-3-concurrency.md`
+  - 남은 한계: 다중 인스턴스 정합 미실증 → 보강#1로 분리(현재 Now)
 - **[인프라] 모니터링 인프라 구축** — 2026-02-24 (PR [#6](https://github.com/data-sy/high-traffic-performance-tuning/pull/6))
   - Spring Boot Actuator + Prometheus 메트릭 엔드포인트, Docker Compose에 Prometheus·Grafana 추가
   - k6 Prometheus remote write 출력 + step 태깅·trend 통계
