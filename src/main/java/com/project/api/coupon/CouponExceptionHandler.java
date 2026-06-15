@@ -3,6 +3,7 @@ package com.project.api.coupon;
 import com.project.api.coupon.dto.CouponErrorResponse;
 import com.project.domain.coupon.CouponSoldOutException;
 import com.project.service.coupon.DuplicateIssueException;
+import com.project.service.coupon.async.QueueFullException;
 import com.project.service.coupon.LockNotAcquiredException;
 import com.project.service.coupon.LockWaitException;
 import com.project.service.coupon.PoolTimeoutException;
@@ -64,6 +65,15 @@ public class CouponExceptionHandler {
     @ExceptionHandler(LockWaitException.class)
     public ResponseEntity<CouponErrorResponse> handleLockWait(LockWaitException e) {
         return error(HttpStatus.SERVICE_UNAVAILABLE, "LOCK_WAIT_TIMEOUT", e.getMessage());
+    }
+
+    /**
+     * 큐 상한 초과 — 429 QUEUE_FULL (phase 3-4 비동기 입구). 백프레셔 발동 관찰치이지
+     * 오류가 아니다 (T7). throw 측 = v6 파사드 (v6a AbortPolicy / v6b·v6c 근사 가드).
+     */
+    @ExceptionHandler(QueueFullException.class)
+    public ResponseEntity<CouponErrorResponse> handleQueueFull(QueueFullException e) {
+        return error(HttpStatus.TOO_MANY_REQUESTS, "QUEUE_FULL", e.getMessage());
     }
 
     private ResponseEntity<CouponErrorResponse> error(HttpStatus status, String code, String message) {

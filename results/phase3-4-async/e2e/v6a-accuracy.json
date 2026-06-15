@@ -1,0 +1,36 @@
+{
+  "version": "v6a",
+  "mode": "normal",
+  "convergence": "CONVERGED",
+  "k6": {
+    "202": 1000,
+    "429": 0,
+    "other": 0
+  },
+  "status_counts": {
+    "SOLD_OUT": 900,
+    "ISSUED": 100
+  },
+  "terminal_count": 1000,
+  "loss": 0,
+  "accepted_residue_requestIds": [],
+  "db": {
+    "total_qty": 100,
+    "issued_counter": 100,
+    "rows": 100
+  },
+  "e2e_ms": {
+    "p50": 533,
+    "p95": 741,
+    "max": 758,
+    "n": 100
+  },
+  "reject_notify_ms": {
+    "p95": 1149,
+    "max": 1158,
+    "n": 900
+  },
+  "t9_inversions": 56,
+  "verdict": "PASS",
+  "fail_reasons": []
+}

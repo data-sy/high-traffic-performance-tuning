@@ -1,0 +1,5 @@
+v6c AFTER_COMMIT halt — redelivery/PEL recovery evidence (main run):
+2026-06-15T21:33:14.574+09:00  INFO 2819 --- [onStreamClaimer] c.p.s.c.async.CouponStreamWorkerV6c      : [v6c-claimer] PEL 회수: 후보 33건 → 회수 33건 (재전달 — 중복은 멱등 흡수가 받는다)
+--- idempotent absorption (unique conflict, 방어 작동 ≥1) ---
+total IDEMPOTENT-ABSORB count: 1
+2026-06-15T21:33:14.812+09:00  INFO 2819 --- [onStreamClaimer] c.p.s.coupon.async.CouponIssueProcessor  : [IDEMPOTENT-ABSORB] duplicate issue absorbed: requestId=b2a57efa-1b13-4484-9d6a-3a31d94e0838 couponId=1 userId=11200000

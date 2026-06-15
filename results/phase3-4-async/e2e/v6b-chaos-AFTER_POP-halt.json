@@ -1,0 +1,40 @@
+{
+  "version": "v6b",
+  "mode": "loss",
+  "convergence": "CONVERGED",
+  "k6": {
+    "202": 1000,
+    "429": 0,
+    "other": 0
+  },
+  "status_counts": {
+    "SOLD_OUT": 898,
+    "ISSUED": 100,
+    "ACCEPTED": 2
+  },
+  "terminal_count": 998,
+  "loss": 2,
+  "accepted_residue_requestIds": [
+    "coupon:issue:status:13849945-af12-456d-a370-cc61bdf0650b",
+    "coupon:issue:status:e6af0bed-ec3d-49d7-bd14-75d183cfe21a"
+  ],
+  "db": {
+    "total_qty": 100,
+    "issued_counter": 100,
+    "rows": 100
+  },
+  "e2e_ms": {
+    "p50": 207,
+    "p95": 360,
+    "max": 370,
+    "n": 100
+  },
+  "reject_notify_ms": {
+    "p95": 21673,
+    "max": 21694,
+    "n": 898
+  },
+  "t9_inversions": 128,
+  "verdict": "PASS",
+  "fail_reasons": []
+}

@@ -1,0 +1,13 @@
+================ 자가 검증 ② 고의 미수렴 → FAIL(NON_CONVERGED) 분류 ================
+  ✓ 격리: phase3-4-async-mysql-1 / phase3-4-async-redis-1 (project=phase3-4-async)
+  ✓ 핀: innodb_lock_wait_timeout=50, isolation=REPEATABLE-READ
+  ✓ Redis PONG
+[배리어] 작업면 잔존 확인 (깊이 3종, 최대 180s 드레인 대기)...
+  ✓ 배리어 통과 (깊이 v6a=0 v6b=0 v6c=0, 행 수 안정 0)
+[reset] coupon 시드 + coupon:issue:* 키 네임스페이스
+  ✓ reset 완료
+[주입] 컨슈머 없는 리스트에 1건 적재 — 깊이 1이 영원히 유지 (타임아웃 핀 120s 전체 대기)
+[수렴 게이트] 깊이 0 && 행 수 연속 3회 동일 (1s 폴링, 타임아웃 120s)
+  ✗ FAIL(NON_CONVERGED) — 타임아웃 120s 내 미수렴 (depth=1, rows=0)
+    분류: NON_CONVERGED (별도 FAIL 사유 — 정합성 FAIL과 구분)
+SELFTEST-NONCONVERGE: PASS — 미수렴이 별도 FAIL 사유로 분류됐다
