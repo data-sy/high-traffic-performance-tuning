@@ -11,7 +11,7 @@
 >
 > **수치 출처**: 모든 실측은 `results/phase3-3-concurrency/analysis.md`(본 실행 v1~v5 +
 > 스톨 데모, 확정·동결본)에서 인용. 락 구조는 `src/main/java/com/project/service/coupon/`
-> 실제 구현. 결정 규율·서사 3축은 본 실행 스펙(`handoff/phase3-3/phase3-3-concurrency-mainrun.md`).
+> 실제 구현. 결정 규율·서사 3축은 본 실행 스펙(`docs/handoff/phase3-3/phase3-3-concurrency-mainrun.md`).
 > 추정·외부지식으로 수치를 채우지 않았다.
 
 ---

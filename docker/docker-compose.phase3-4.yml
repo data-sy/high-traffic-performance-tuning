@@ -1,0 +1,28 @@
+# Phase 3-4 비동기 발급 측정 — 전용 격리 스택 오버라이드.
+# 본체 `docker` 스택(docker-mysql-1/redis-1, docker_mysql-data)과 프로젝트·볼륨·네트워크·포트를
+# 완전 분리한다 — 측정/reset이 본체 데이터에 닿지 않게.
+#
+# 기동:
+#   docker compose -p phase3-4-async \
+#     -f docker/docker-compose.yml -f docker/docker-compose.phase3-4.yml up -d mysql redis
+#
+# -p phase3-4-async → 컨테이너 phase3-4-async-mysql-1 / -redis-1, 볼륨 phase3-4-async_mysql-data,
+#                     네트워크 phase3-4-async_default (전부 본체 docker_* 와 이름 불충돌).
+# 본체는 `docker compose -f docker/docker-compose.yml ...` 그대로 — 이 오버라이드를 -f로 명시하지
+# 않는 한 영향 0. 프로젝트명은 -p 플래그로만 지정한다(docker/.env로 본체 프로젝트명을 바꾸지 않는다).
+#
+# ⚠ ports 는 `!override` 로 **교체**한다 — compose는 멀티 -f 의 ports 리스트를 기본 *병합(append)* 하므로,
+#   override 없이는 본체 3306/6379 매핑이 남아 본체 포트와 충돌한다.
+# ⚠ 기동 시 서비스명 `mysql redis`를 **반드시 명시**(무인자 up 금지). prometheus/grafana는 전용 스택에서
+#   띄우지 않으며, 아래 !override [] 로 호스트 포트 발행도 비워 본체 9090/3000과 충돌하지 않게 한다.
+services:
+  mysql:
+    ports: !override
+      - "3307:3306"   # 본체 3306과 비충돌 (호스트 3307 → 전용 컨테이너 3306). 앱은 3307로 접속.
+  redis:
+    ports: !override
+      - "6380:6379"   # 본체 6379와 비충돌. 앱 redis host/port=6380 오버라이드.
+  prometheus:
+    ports: !override []   # 전용 스택 미사용 — 본체 9090 충돌 방지(무인자 up 안전판)
+  grafana:
+    ports: !override []   # 전용 스택 미사용 — 본체 3000 충돌 방지

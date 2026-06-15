@@ -2,7 +2,7 @@
 
 > **상태**: ⛔ **SUPERSEDED (대체됨 — 기록용 보존)**. 이 초안은 검증·확정을 거쳐 두 정본으로 대체됐다:
 > 확정 스펙 [`specs/phase3-3-concurrency.md`](./phase3-3-concurrency.md) + 핸드오프 배치본
-> [`handoff/phase3-3/phase3-3-concurrency-mainrun.md`](../handoff/phase3-3/phase3-3-concurrency-mainrun.md)(audit Healthy).
+> [`docs/handoff/phase3-3/phase3-3-concurrency-mainrun.md`](../docs/handoff/phase3-3/phase3-3-concurrency-mainrun.md)(audit Healthy).
 > 이 파일은 작성 시점 기록용으로만 남긴다 — 최신 내용은 정본을 보라. (이하 원문 보존)
 >
 > **대상 브랜치**: `phase/3-3-concurrency-lock` (본 실행). 현재 이 초안은 리허설 워크트리
@@ -20,9 +20,9 @@
   문장도 "v1~v5가 이미 구현됨"을 전제하지 않는다 — Step A~G가 생성한다.
 - **하네스는 비파괴 복사로 재사용한다(재구축 금지).** 리허설에서 검증·일반화가 끝난 측정 하네스
   (`test/load/coupon-test.js`, `scripts/measure/run-coupon-concurrency.sh`, `scripts/coupon/reset-coupon.sql`,
-  `analysis.md` 템플릿)는 Step 1 핸드오프 묶음(`handoff/phase3-3/`)으로 전달되며, 본 실행은 이를 정규 위치로
+  `analysis.md` 템플릿)는 Step 1 핸드오프 묶음(`docs/handoff/phase3-3/`)으로 전달되며, 본 실행은 이를 정규 위치로
   복사해 **무수정 사용**한다. 락 구현·런·분석만 본 레포에서 신규 생성한다.
-  - **핸드오프 미수령 시 대체 경로**: `handoff/phase3-3/`가 없으면 정규 위치 원본(`test/load/coupon-test.js`,
+  - **핸드오프 미수령 시 대체 경로**: `docs/handoff/phase3-3/`가 없으면 정규 위치 원본(`test/load/coupon-test.js`,
     `scripts/measure/run-coupon-concurrency.sh`, `scripts/coupon/reset-coupon.sql`)을 직접 복사·무수정 사용한다(동일 결과).
 - **샌드박스 격리 장치는 본 실행에 가져오지 않는다.** G0 조건부 게이트, `docker_sandbox-*` 프로젝트, per-worktree
   `--worktree` 훅, fresh-volume/gradle-wrapper 우발 처치는 리허설 전용이었다. 본 실행은 기본 컨테이너
@@ -224,7 +224,7 @@ CouponRepository, CouponIssueRepository: 기본 JpaRepository (Step A에서 메�
 - `CouponIssueServiceV1`: 조회 → `existsByCouponIdAndUserId` 거절 → `coupon.issue()` → 저장. **락 없음**(초과 노출).
 - 컨트롤러 `POST /api/v1/coupons/issue`.
 - **하네스 = 핸드오프 비파괴 복사(재구축 금지)**: `test/load/coupon-test.js`, `scripts/measure/run-coupon-concurrency.sh`를
-  정규 위치로 복사·`chmod +x`. **핸드오프(`handoff/phase3-3/`) 미수령 시 정규 위치 원본(`test/load/coupon-test.js`,
+  정규 위치로 복사·`chmod +x`. **핸드오프(`docs/handoff/phase3-3/`) 미수령 시 정규 위치 원본(`test/load/coupon-test.js`,
   `scripts/measure/run-coupon-concurrency.sh`, `scripts/coupon/reset-coupon.sql`)을 직접 복사**(동일 결과). **하네스 코드는 무수정 — 단 컨테이너 타겟은 환경값으로 맞춘다: 본 실행 셋업에서
   `COMPOSE_PROJECT_NAME=docker` export(§7). 리허설 default `docker_sandbox`는 본 실행에 부적합.** 하네스가 이미
   갖춘 것(리허설 검증됨):

@@ -1,0 +1,8 @@
+================ 자가 검증 ① 고의 핀 불일치 → abort ================
+  ✓ 격리: phase3-4-async-mysql-1 / phase3-4-async-redis-1 (project=phase3-4-async)
+[주입] EXPECT_LOCK_WAIT=999 (실제 50 — 불일치 강제)
+  ✗ [핀 abort] 통제변수 불일치 — 측정 중단:
+     innodb_lock_wait_timeout=50 (기대 999)
+     transaction_isolation=REPEATABLE-READ (기대 REPEATABLE-READ)
+[관측] assert 종료 코드 = 2 (기대 2 = abort)
+SELFTEST-PIN: PASS — 핀 불일치가 측정을 중단시켰다

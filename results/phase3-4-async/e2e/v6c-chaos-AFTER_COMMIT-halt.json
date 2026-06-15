@@ -1,0 +1,35 @@
+{
+  "version": "v6c",
+  "mode": "redelivery",
+  "convergence": "CONVERGED",
+  "k6": {
+    "202": 1000,
+    "429": 0,
+    "other": 0
+  },
+  "status_counts": {
+    "ISSUED": 1000
+  },
+  "terminal_count": 1000,
+  "loss": 0,
+  "accepted_residue_requestIds": [],
+  "db": {
+    "total_qty": 1100,
+    "issued_counter": 1000,
+    "rows": 1000
+  },
+  "e2e_ms": {
+    "p50": 7888,
+    "p95": 9042,
+    "max": 11582,
+    "n": 1000
+  },
+  "reject_notify_ms": {
+    "p95": null,
+    "max": null,
+    "n": 0
+  },
+  "t9_inversions": 35800,
+  "verdict": "PASS",
+  "fail_reasons": []
+}

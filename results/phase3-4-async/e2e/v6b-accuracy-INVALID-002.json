@@ -1,0 +1,35 @@
+{
+  "version": "v6b",
+  "mode": "normal",
+  "convergence": "CONVERGED",
+  "k6": {
+    "202": 0,
+    "429": 0,
+    "other": 1000
+  },
+  "status_counts": {},
+  "terminal_count": 0,
+  "loss": 0,
+  "accepted_residue_requestIds": [],
+  "db": {
+    "total_qty": 100,
+    "issued_counter": 0,
+    "rows": 0
+  },
+  "e2e_ms": {
+    "p50": null,
+    "p95": null,
+    "max": null,
+    "n": 0
+  },
+  "reject_notify_ms": {
+    "p95": null,
+    "max": null,
+    "n": 0
+  },
+  "t9_inversions": null,
+  "verdict": "FAIL",
+  "fail_reasons": [
+    "rows/counter/total 불일치 0/0/100"
+  ]
+}

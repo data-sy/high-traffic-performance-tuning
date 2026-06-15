@@ -78,7 +78,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     R["<b>리허설 샌드박스</b><br/>sandbox/phase3-3-dryrun<br/>v1~v5 + 통제 재실험<br/>발견 9건·통제 설계"]
-    H["<b>핸드오프 번들</b><br/>handoff/phase3-3/<br/>하네스·reset·analysis 템플릿<br/>(리허설 숫자는 미승격)"]
+    H["<b>핸드오프 번들</b><br/>docs/handoff/phase3-3/<br/>하네스·reset·analysis 템플릿<br/>(리허설 숫자는 미승격)"]
     M["<b>본 레포 재실행</b><br/>phase/3-3-concurrency-lock<br/>스펙→하네스→락→런→분석<br/>락·런·분석만 신규 생성"]
     R -->|"Step 1 핸드오프<br/>비파괴 복사"| H
     H -->|"하네스 무수정 사용"| M
@@ -350,6 +350,6 @@ duration을 늘리면 100으로 수렴한다. 측정값을 정확히 읽고도 �
 
 - **[results/phase3-3-concurrency/analysis.md](../../results/phase3-3-concurrency/analysis.md)** — 모든 실측의 1차 출처(확정·동결본).
 - **[results/phase3-3-concurrency/decision-log-v3.md](../../results/phase3-3-concurrency/decision-log-v3.md)** — 의사결정 서사 ★ 채택본(v1·v2는 톤 비교 기록용 보존).
-- **[handoff/phase3-3/phase3-3-concurrency-mainrun.md](../../handoff/phase3-3/phase3-3-concurrency-mainrun.md)** — 본 실행 개정 스펙(방법론·3축·통제 규율·§6 결정).
+- **[docs/handoff/phase3-3/phase3-3-concurrency-mainrun.md](../handoff/phase3-3/phase3-3-concurrency-mainrun.md)** — 본 실행 개정 스펙(방법론·3축·통제 규율·§6 결정).
 - 락 구현: `src/main/java/com/project/service/coupon/CouponIssueServiceV1..V5.java`, `CouponStallDemoService.java`.
 - PR: [#8](https://github.com/data-sy/high-traffic-performance-tuning/pull/8) (락 사다리), [#9](https://github.com/data-sy/high-traffic-performance-tuning/pull/9) (README)
