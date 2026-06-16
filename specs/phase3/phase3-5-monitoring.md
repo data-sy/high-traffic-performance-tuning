@@ -3,7 +3,7 @@
 > 관측 스택을 **버전관리되는 산출물**로 만든다. 지금 Grafana **컨테이너**는 docker-compose에 있으나, 데이터소스·대시보드는 전부 **웹 UI(localhost:3000)에서 수동 설정**되어 docker 볼륨(`grafana-storage`)에만 살아 있다 → **repo에 없다 = 재현 불가**. 이 phase는 데이터소스 + 대시보드를 **프로비저닝-as-code**로 정의해 `docker compose up`만으로 자동 로드되게 하고, 시나리오 v1~v4 before/after 대시보드를 코드로 구축한다.
 
 ## Context
-- Phase 3-1(인덱스, PR #3), 3-2(랭킹, PR #5), 3-3(동시성, PR #12), 3-4(비동기 발급, PR #13) 완료 상태
+- Phase 3-1(인덱스, PR #3), 3-2(랭킹, PR #4·#5), 3-3(동시성, PR #8·#9), 3-4(비동기 발급, PR #13) 완료 상태
 - **모니터링 인프라는 PR #6에서 이미 구축됨** (아래 "기존 인프라 현황" 참조 — 신규 컨테이너 추가 아님)
 - 두 개의 메트릭 소스가 이미 흐르고 있다:
   - **(a) Spring Actuator scrape** — Prometheus가 `host.docker.internal:8080/actuator/prometheus`를 5s 간격 scrape. JVM, HikariCP 풀(`hikaricp_connections_*`), HTTP 서버(`http_server_requests_seconds_*`) 등
