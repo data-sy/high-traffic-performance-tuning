@@ -8,24 +8,20 @@
 
 ## Now — 진행 중
 
-작업 순서: **① Phase 3-5 인프라·관측성 코드화 → ② Phase 3-6 데이터 스케일업(진짜 대용량 실증)**. ①을 먼저 끝내고 ② 재측정을 그 위에서 한 번에 수행 — 관측 레이어 없이 측정한 뒤 나중에 다시 측정하는 중복을 피한다. (모니터링도 phase 단계로 취급 → 스케일업 3-6, N+1 3-7로 밀림)
+작업 순서: **Phase 3-6 데이터 스케일업(진짜 대용량 실증)**. Phase 3-5(관측성 코드화)는 PR [#14](https://github.com/data-sy/high-traffic-performance-tuning/pull/14)로 완료 — 그 위에서 스케일업 재측정을 처음부터 시각화 하에 수행한다(관측 레이어 없이 측정 후 재측정하는 중복 회피). (모니터링도 phase 단계로 취급 → 스케일업 3-6, N+1 3-7)
 
-- **① [Phase 3-5 / 인프라·관측성] Grafana 관측 스택 코드화 (provisioning-as-code)** — `phase/3-5-monitoring` (브랜치 생성 완료, main에서 분기). PR [#6](https://github.com/data-sy/high-traffic-performance-tuning/pull/6) 모니터링 인프라 위에 얹음
-  - 현 상태: `docker/docker-compose.yml`에 Grafana 컨테이너는 있으나(포트 3000) datasource·대시보드 정의가 repo에 **0개**. 지금까지는 `localhost:3000`에 들어가 손으로 Prometheus 연결·패널 생성 → 그 상태가 `grafana-storage` 볼륨에만 남아 **재현 불가**(볼륨 삭제 시 소실)
-  - 범위: `docker/grafana/provisioning/datasources/*.yml`(Prometheus 자동 연결 `http://prometheus:9090`) + `docker/grafana/provisioning/dashboards/*.yml` + `docker/grafana/dashboards/*.json`(시나리오별 v1~v4 before/after 패널)를 repo에 정의하고 compose에 마운트 → `docker compose up`만으로 datasource·대시보드 자동 로드
-  - 메트릭 두 소스 모두 대시보드화: (a) Spring Actuator 스크레이프(JVM·Hikari 풀·HTTP 서버) (b) k6 remote-write(부하 지표)
-  - 효과: 모니터링이 "수동 클릭"에서 "버전관리된 산출물"로 승격 — 스케일업 재측정을 처음부터 시각화 하에 수행
-  - 스펙: `specs/phase3/phase3-5-monitoring.md` (착수 전 작성)
+- **[Phase 3-6 / 측정] 데이터 스케일업 — "진짜 대용량 처리" 실증** — 새 브랜치 (예: `phase/3-6-scale-up`, Phase 3-5(#14) 머지 후 main에서 분기)
+  - 목적: 포폴 헤드라인("100만 규모")을 실데이터로 입증 — 숫자가 "진짜 대용량을 돌렸다"를 스스로 말하게 만든다. 병목 테이블은 users(1K)가 아니라 **product(100K→100만)·orders(50K→확장)** (회원만 늘려선 인덱스·Redis 수치 불변)
+  - 범위: `scripts/generate-test-data.sh` 수정 → 시나리오① 인덱스(EXPLAIN+k6 5스텝)·③ 랭킹(DB ORDER BY vs Redis) 재측정 → Phase 3-5에서 만든 Grafana 대시보드로 before/after 캡처 → `results/`·문서 수치 갱신
+  - 묶음: 재측정 중복 회피 위해 **스케일업 → 인덱스·랭킹 재측정 → N+1**을 한 흐름으로(N+1 승격 시 함께)
+  - 주의: 동시성(④)은 스케일 무관(동시 요청 수에 의존) — 이 작업 선행 대상 아님. 출시/제출 전 신뢰도 위해 1회 필수
+  - 인계: Phase 3-5에서 발견한 `/api/v4/products` 200 미반환(index 대시보드 v4 시계열 미적재)을 이 단계 인덱스 재측정 중 함께 확인
 
 ---
 
 ## Next — 다음 (착수 예정)
 
-- **② [Phase 3-6 / 측정] 데이터 스케일업 — "진짜 대용량 처리" 실증** — 새 브랜치 (예: `phase/3-6-scale-up`, ① 머지 후 main에서 분기)
-  - 목적: 포폴 헤드라인("100만 규모")을 실데이터로 입증 — 숫자가 "진짜 대용량을 돌렸다"를 스스로 말하게 만든다. 병목 테이블은 users(1K)가 아니라 **product(100K→100만)·orders(50K→확장)** (회원만 늘려선 인덱스·Redis 수치 불변)
-  - 범위: `scripts/generate-test-data.sh` 수정 → 시나리오① 인덱스(EXPLAIN+k6 5스텝)·③ 랭킹(DB ORDER BY vs Redis) 재측정 → ①에서 만든 Grafana 대시보드로 before/after 캡처 → `results/`·문서 수치 갱신
-  - 묶음: 재측정 중복 회피 위해 **스케일업 → 인덱스·랭킹 재측정 → N+1**을 한 흐름으로(N+1 승격 시 함께)
-  - 주의: 동시성(④)은 스케일 무관(동시 요청 수에 의존) — 이 작업 선행 대상 아님. 출시/제출 전 신뢰도 위해 1회 필수
+- Phase 3-6(스케일업)이 Now로 진행 중 → 그 다음은 **Phase 3-7 N+1**(아래 Later, 스케일업과 묶음 측정)·**4개 시나리오 종합 리포트**(아래 Later). 우선순위가 오르면 여기로 승격.
 
 ---
 
@@ -38,6 +34,7 @@
   - 권장: 위 스케일업(②)과 묶어 최종 규모에서 한 번에 측정 (재측정 중복 회피)
 - **[문서] 4개 시나리오 측정 결과 종합 리포트** — 포트폴리오용으로 인덱스·N+1·랭킹·동시성 결과를 한 문서로 종합 (각 `results/phaseN-*/` 기반, ①의 Grafana 대시보드 캡처 포함)
 - **[정리] 로컬 stale/거버넌스 브랜치 일괄 정리** — 지금은 보류, 나중 일괄. 머지 완료 브랜치(`fix/redis-config` #11, `phase/3-3-multi-instance` #10, `phase/3-4-async-issuance` #13)는 즉시 삭제 가능. `*-mainrun`·`sandbox/*`는 로컬 고유 내용이 있어 **필요한 정보만 추출 후 삭제**
+- **[Phase 3-5 후속] concurrency 503 분해 패널 실데이터 캡처** — `concurrency.json`의 ⓐ/ⓑ/ⓒ(503 원인) 패널은 정상이나, 503을 내려면 풀 포화/락대기 유발 부하(쿠폰 재고·Hikari 풀 크기 등 파라미터 조정)가 필요. 향후 동시성 재측정 맥락에서 실데이터로 캡처
 - (아이디어 추가 시 여기로)
 
 ---
@@ -46,6 +43,10 @@
 
 날짜·PR 번호는 git history 기준. 상세 변경 내역은 각 PR 또는 `specs/` 해당 phase 스펙 참조.
 
+- **[Phase 3-5 / 인프라·관측성] Grafana 관측 스택 코드화 (provisioning-as-code)** — 2026-06-16 (PR [#14](https://github.com/data-sy/high-traffic-performance-tuning/pull/14), `phase/3-5-monitoring`)
+  - datasource(고정 `uid=prometheus`) + 시나리오 4종 대시보드(index/ranking/concurrency/async) + provider를 repo에 정의하고 compose에 bind-mount → `docker compose up`만으로 자동 로드(수동 클릭 0, `grafana-storage` 볼륨 불변)
+  - 두 메트릭 소스 대시보드화: (a) actuator 스크레이프(HikariCP·HTTP·executor 큐) (b) k6 remote-write. PoC에서 k6 실명(`k6_`+`_total`/`_p95`·`_p99`) 확정 후 PromQL에 반영
+  - 결과: `docker/grafana/`, runbook `docker/grafana/README.md`, PoC `specs/phase3/poc-phase3-5-verification.md`, Step D 스크린샷 `results/phase3-5-monitoring/screenshots/`(랭킹 v1 DB 107ms vs v4 Redis 0.8ms before/after)
 - **[시나리오 / 비동기 발급] 쿠폰 비동기 발급 — 큐 구조 사다리** — 2026-06 (PR [#13](https://github.com/data-sy/high-traffic-performance-tuning/pull/13), `phase/3-4-async-issuance`)
   - **v6a** @Async 인메모리 스레드풀 → **v6b** Redis List(BRPOP·ack 없음, 유실 재현) → **v6c** Redis Stream(컨슈머 그룹·PEL·XACK, 재전달 흡수)
   - 동기 발급(v3)의 "줄을 큐로 옮긴" 비용 프로파일 측정: 202 응답 ↔ E2E 발급 지연·큐 깊이·수렴 시간. 동시성 게이트(초과발급 0)는 유지
