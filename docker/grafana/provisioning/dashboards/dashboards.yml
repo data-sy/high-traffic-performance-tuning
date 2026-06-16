@@ -1,0 +1,14 @@
+apiVersion: 1
+providers:
+  - name: 'flashdeal-dashboards'
+    orgId: 1
+    folder: 'FlashDeal'          # Grafana UI에서 묶일 폴더명
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false        # 프로비저닝 대시보드는 코드로만 수정 (UI 편집 금지)
+    options:
+      # /etc/grafana/dashboards — grafana-storage(/var/lib/grafana) 볼륨과 경로가 안 겹쳐
+      # 오버레이 충돌 없음. compose에서 ./grafana/dashboards 를 여기에 bind-mount.
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false

@@ -58,7 +58,19 @@ done
 **확인 포인트**
 - k6 메트릭 이름의 실제 prefix/형태를 여기서 **확정**(대시보드 쿼리에 그대로 박을 문자열). 0이 나오면 본 구현 전에 이름부터 교정.
 
-**결론**: (작성 후 기입 — 확인된 메트릭 이름 목록)
+**결론** (2026-06-16 실측, k6 v1.5.0 / `-o experimental-prometheus-rw`):
+- **PASS.** 두 소스 모두 시계열 적재 확인.
+- **(a) actuator** — 전부 존재: `up`(1), `http_server_requests_seconds_count`/`_sum`(각 4, uri 라벨로 분리), `hikaricp_connections_active`/`_pending`/`_max`(각 1), `jvm_memory_used_bytes`(6).
+- **(b) k6 remote-write — 이름이 변형된다 (가장 중요한 발견):**
+  - **모든 메트릭에 `k6_` prefix.** 스펙 예시(`issue_dur_200_success`)를 그대로 쓰면 전부 No data였음.
+  - **Counter → `k6_<name>_total`** (예: `k6_issue_cnt_200_success_total`, `k6_issue_cnt_202_accepted_total`, `k6_issue_cnt_409_soldout_total`).
+  - **Trend → `k6_<name>_<stat>`. 기본 stat = `p99` 단일.** (예: `k6_issue_dur_200_success_p99`, `k6_accept_dur_202_p99`). 괄호는 제거됨: `p(95)`→`p95`.
+  - **p95를 적재하려면** k6 실행 시 `K6_PROMETHEUS_RW_TREND_STATS="p(95),p(99)"`(또는 `avg,p(95),p(99)`) 지정 필요 → `k6_accept_dur_202_p95` 적재 확인함. **본 구현의 부하 실행은 이 env를 표준으로 사용한다.**
+  - **버전/프로필 의존(코드엔 있으나 해당 부하 안 돌면 미적재 — 발명 아님):**
+    - `k6_issue_cnt_503_pool_timeout_total`/`_lock_wait_total`/`_not_acquired_total`, `k6_issue_dur_503_lockreject_p*` → **v3+ 부하**에서만 (v1은 503 없음).
+    - `k6_issue_cnt_429_queue_full_total` → 백프레셔 발동(observe 고부하)에서만.
+    - `k6_steady_*` → coupon-test `PROFILE=performance` / async `PROFILE=observe` 에서만.
+  - 전체 스냅샷: `results/phase3-5-monitoring/poc/poc-results.log`.
 
 ---
 
@@ -90,7 +102,9 @@ compose의 grafana 서비스에 임시 마운트:
 
 **확인 포인트**: 컨테이너 내부 네트워크에서 `prometheus`(서비스명)로 해석되는지 — `localhost`가 아니라 `http://prometheus:9090` 여야 함.
 
-**결론**: (작성 후 기입)
+**결론** (2026-06-16 실측):
+- **PASS.** `docker compose up -d` 만으로 `/api/datasources`에 `name: Prometheus`, `uid: prometheus`, `url: http://prometheus:9090`, `access: proxy`, `isDefault: true` 자동 등록. 수동 클릭 0.
+- 본 구현 datasource는 PoC와 동일 파일 사용(고정 `uid: prometheus`) — 대시보드 panel이 이 uid를 참조.
 
 ---
 
@@ -120,7 +134,20 @@ providers:
 - 프로비저닝된 대시보드는 UI에서 편집 불가(read-only) — 의도된 동작. 본 구현 시 대시보드는 **코드로만** 수정한다.
 - `grafana-storage` 볼륨과 bind-mount 경로(`/etc/grafana/...`)는 서로 다른 경로라 충돌 없음을 확인 — 충돌하면 본 구현에서 마운트 전략 재검토.
 
-**결론**: (작성 후 기입)
+**결론** (2026-06-16 실측):
+- **PASS.** provider(`/etc/grafana/dashboards`) + `_poc.json`(패널 `up`)가 `docker compose up -d`만으로 FlashDeal 폴더에 자동 등록(`/api/search`에 `uid: poc-phase3-5`).
+- **마운트 경로 확정: `/etc/grafana/dashboards`** (스펙 Step C가 허용한 안전 변형). `grafana-storage`(`/var/lib/grafana`)와 경로가 안 겹쳐 **오버레이 충돌 0** — `down -v` 없이 grafana만 재생성해도 볼륨 보존(컨테이너 `docker inspect`로 3개 마운트 + grafana-storage 유지 확인). 본 구현은 이 경로 그대로 사용.
+- 프로비저닝 대시보드는 UI read-only(`allowUiUpdates: false`) — 코드로만 수정.
+
+---
+
+## PoC 종합 결론 — 본 구현 착수 가능
+세 항목 모두 PASS. 본 구현(Step A~D)에 고정할 사항:
+- datasource `uid`: **`prometheus`**, url `http://prometheus:9090`, access proxy.
+- 대시보드 마운트: `./grafana/dashboards → /etc/grafana/dashboards` (볼륨 비충돌).
+- **PromQL 메트릭명 규칙**: actuator는 실명 그대로 / k6는 **`k6_` prefix + Counter `_total` + Trend `_p95`·`_p99`**.
+- **부하 실행 표준 env**: `K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9090/api/v1/write`, `K6_PROMETHEUS_RW_TREND_STATS="p(95),p(99)"`.
+- 이미 PoC 단계에서 datasource.yml·dashboards.yml(provider)·compose 마운트가 본 구현용으로 생성됨 → Step A·C는 사실상 완료, Step B(대시보드 4종)에서 `_poc.json`을 교체.
 
 ---
 

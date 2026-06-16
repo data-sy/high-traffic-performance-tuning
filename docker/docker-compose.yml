@@ -31,7 +31,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - grafana-storage:/var/lib/grafana
+      - grafana-storage:/var/lib/grafana                       # 기존 — 유지 (UI 수동설정 보존)
+      - ./grafana/provisioning:/etc/grafana/provisioning       # 추가 — datasource + dashboard provider
+      - ./grafana/dashboards:/etc/grafana/dashboards           # 추가 — provider가 읽는 대시보드 JSON (볼륨과 경로 비충돌)
 
 volumes:
   mysql-data:

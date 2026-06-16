@@ -1,0 +1,28 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "up",
+          "legendFormat": "{{job}} ({{instance}})",
+          "refId": "A"
+        }
+      ],
+      "title": "PoC — Prometheus 'up' (datasource + provisioning + render sanity)",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["poc", "phase3-5"],
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "_PoC Phase 3-5",
+  "uid": "poc-phase3-5"
+}
