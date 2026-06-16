@@ -80,6 +80,17 @@
 
 이 프로젝트는 4개 시나리오를 phase 단위로 진행하는 단일 스키마 모놀리식이라, 무거운 Epic/Milestone 구조 대신 phase-spec 중심의 가벼운 체계를 사용한다.
 
+표준 PM 용어와의 대응(리네이밍이 아니라 매핑 — repo의 작업 단위 명칭은 "Phase"로 통일한다):
+
+| 표준 PM | 이 프로젝트 | 예 |
+|---|---|---|
+| Epic | 프로젝트 전체 (한 덩어리) | high-traffic-performance-tuning |
+| **Milestone** | **Phase** | Phase 1·2(셋업·도메인), Phase 3(시나리오 최적화·측정), Phase 4(대용량 분산처리 — 예정) |
+| Task/Story | 시나리오·Spec | 3-1 인덱스, 3-2 랭킹, 3-3 동시성, 3-4 비동기 발급 |
+
+- Phase가 Milestone 역할을 한다(별도 Milestone 계층 없음). 이미 시작된 넘버링(~3-4)은 유지하고 소급 리네이밍하지 않는다.
+- 칸반 상태(Now/Next/Later/Done)는 위 단위들과 직교한다 — 단위는 "무엇"을, 상태는 "어디까지"를 가리킨다.
+
 - **Roadmap** — 모든 작업의 단일 인덱스 (이 문서)
 - **Spec** — `specs/phaseN-*.md` 단계별 구현 명세. 각 스펙을 그대로 따라 구현 (`CLAUDE.md` 규칙)
 - **PoC** — 도구·접근 사전 검증은 `specs/poc-*.md`
