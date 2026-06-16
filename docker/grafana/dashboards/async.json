@@ -1,0 +1,69 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "title": "Async Issuance — Queue Backpressure v6a~v6c",
+  "uid": "flashdeal-async",
+  "tags": ["flashdeal", "phase3-4", "async"],
+  "schemaVersion": 39,
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "templating": {
+    "list": [
+      {
+        "name": "phase",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(phase)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "접수 지연(accept latency) — 202 응답까지의 시간. ⚠ 발급 지연(E2E)이 아님(coupon-async-test.js T4 라벨 규율). E2E 발급지연은 상태 해시에서 산출하며 k6는 미수집. k6 trend 단위 ms.",
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "k6_accept_dur_202_p95{phase=~\"$phase\"}", "legendFormat": "accept p95", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "k6_accept_dur_202_p99{phase=~\"$phase\"}", "legendFormat": "accept p99", "refId": "B" }
+      ],
+      "title": "접수 지연 accept latency (p95/p99) — NOT E2E 발급지연",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "접수(202) vs 백프레셔(429 QUEUE_FULL). 429는 큐 포화 시 의도적 거절 = 백프레셔 발동(오류 아님). observe 고부하에서만 429 발생.",
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(k6_issue_cnt_202_accepted_total{phase=~\"$phase\"}[30s]))", "legendFormat": "202 accepted", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(k6_issue_cnt_429_queue_full_total{phase=~\"$phase\"}[30s]))", "legendFormat": "429 queue_full (백프레셔)", "refId": "B" }
+      ],
+      "title": "접수 vs 백프레셔 (202 / 429 QUEUE_FULL)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "인메모리 @Async ThreadPoolExecutor 큐 깊이(actuator executor_* 게이지). queued=대기 중 작업 수. ⚠ v6a(인메모리)만 노출 — v6b/v6c(Redis List/Stream)의 큐 깊이는 actuator 게이지로 노출 안 됨. remaining(남은 큐 용량)은 무계 큐에서 Integer.MAX로 찍혀 스케일을 가리므로 기본 숨김(override) — 레전드에서 토글하면 볼 수 있음.",
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [ { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "custom.hideFrom", "value": { "viz": true, "legend": false, "tooltip": false } } ] } ] },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "executor_queued_tasks", "legendFormat": "queued {{name}}", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "executor_queue_remaining_tasks", "legendFormat": "remaining {{name}}", "refId": "B" }
+      ],
+      "title": "인메모리 실행기 큐 깊이 (v6a @Async executor)",
+      "type": "timeseries"
+    }
+  ]
+}

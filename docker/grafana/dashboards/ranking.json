@@ -1,0 +1,52 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "title": "③ Real-time Ranking — DB ORDER BY vs Redis v1~v4",
+  "uid": "flashdeal-ranking",
+  "tags": ["flashdeal", "phase3-2", "ranking"],
+  "schemaVersion": 39,
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "버전별 처리량. v1=DB ORDER BY … v4=Redis Sorted Set. 부하: test/load/ranking-test.js (VERSION env). actuator http_server_requests_seconds_count{uri=/api/v*/rankings}.",
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (uri) (rate(http_server_requests_seconds_count{uri=~\"/api/v[0-9]+/rankings\"}[1m]))", "legendFormat": "{{uri}}", "refId": "A" }
+      ],
+      "title": "Throughput (req/s) by version",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "서버측 평균 지연 = rate(_sum)/rate(_count). DB ORDER BY(v1)와 Redis(v4) 대비. 진짜 p95 불가(Actuator Timer histogram 미발행) → avg 비교, 클라 p95는 k6 http_req_duration 참조.",
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (uri) (rate(http_server_requests_seconds_sum{uri=~\"/api/v[0-9]+/rankings\"}[1m])) / sum by (uri) (rate(http_server_requests_seconds_count{uri=~\"/api/v[0-9]+/rankings\"}[1m]))", "legendFormat": "{{uri}} avg", "refId": "A" }
+      ],
+      "title": "평균 서버 지연 avg by version (DB vs Redis)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "버전별 최대 지연(꼬리 근사). Actuator _max 게이지.",
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "max by (uri) (http_server_requests_seconds_max{uri=~\"/api/v[0-9]+/rankings\"})", "legendFormat": "{{uri}} max", "refId": "A" }
+      ],
+      "title": "Max 지연 by version (tail proxy)",
+      "type": "timeseries"
+    }
+  ]
+}

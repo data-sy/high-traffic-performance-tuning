@@ -1,0 +1,9 @@
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: prometheus            # 대시보드 JSON이 참조할 고정 uid (불변)
+    type: prometheus
+    access: proxy              # Grafana 서버가 대신 호출 (브라우저 직접 호출 아님)
+    url: http://prometheus:9090   # compose 네트워크 내부 DNS — localhost 아님
+    isDefault: true
+    editable: true

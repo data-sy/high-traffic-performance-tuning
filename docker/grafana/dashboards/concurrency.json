@@ -1,0 +1,88 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "title": "④ Concurrency — Coupon Issuance Lock v1~v5",
+  "uid": "flashdeal-concurrency",
+  "tags": ["flashdeal", "phase3-3", "concurrency"],
+  "schemaVersion": 39,
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "templating": {
+    "list": [
+      {
+        "name": "phase",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(phase)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "HikariCP 풀 상태. pending↑ = v3 SELECT FOR UPDATE의 풀 포화 간판 지표(phase3-3 보강#3). active==max & pending>0 이면 커넥션 대기.",
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hikaricp_connections_active", "legendFormat": "active", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hikaricp_connections_pending", "legendFormat": "pending", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "hikaricp_connections_max", "legendFormat": "max", "refId": "C" }
+      ],
+      "title": "HikariCP 풀 (active / pending / max)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "503 거절을 원인별로 분해(phase3-3 '503 의미 구분'). ⓐ POOL_TIMEOUT 풀고갈 / ⓑ LOCK_WAIT_TIMEOUT 행락대기(v3) / ⓒ LOCK_NOT_ACQUIRED 분산락 미획득(v4·v5). v3+ 부하에서만 채워짐.",
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 20, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(k6_issue_cnt_503_pool_timeout_total{phase=~\"$phase\"}[30s]))", "legendFormat": "ⓐ pool_timeout", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(k6_issue_cnt_503_lock_wait_total{phase=~\"$phase\"}[30s]))", "legendFormat": "ⓑ lock_wait", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(k6_issue_cnt_503_not_acquired_total{phase=~\"$phase\"}[30s]))", "legendFormat": "ⓒ not_acquired", "refId": "C" }
+      ],
+      "title": "503 거절 원인 분해 (rate)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "outcome별 지연을 분리(집계 p95 금지 — phase3-3 Blocker 계승). 성공/품절/락거절은 지연 분포가 달라 한데 섞으면 무의미. k6 trend 단위 ms. p95는 부하 실행 시 K6_PROMETHEUS_RW_TREND_STATS='p(95),p(99)' 필요(미지정 시 p99만 적재) — p99 시리즈를 함께 둬 env 누락 시에도 비지 않게 함.",
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "k6_issue_dur_200_success_p95{phase=~\"$phase\"}", "legendFormat": "200 success p95", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "k6_issue_dur_409_soldout_p95{phase=~\"$phase\"}", "legendFormat": "409 soldout p95", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "k6_issue_dur_503_lockreject_p95{phase=~\"$phase\"}", "legendFormat": "503 reject p95", "refId": "C" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "k6_issue_dur_200_success_p99{phase=~\"$phase\"}", "legendFormat": "200 success p99", "refId": "D" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "k6_issue_dur_409_soldout_p99{phase=~\"$phase\"}", "legendFormat": "409 soldout p99", "refId": "E" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "k6_issue_dur_503_lockreject_p99{phase=~\"$phase\"}", "legendFormat": "503 reject p99", "refId": "F" }
+      ],
+      "title": "outcome별 지연 p95/p99 (분리, 집계 금지)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "발급 성공 누적. 정합성 게이트: 최종값이 쿠폰 total_qty 이하여야 함(초과발급 0). v1(no lock)은 초과 재현.",
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(k6_issue_cnt_200_success_total{phase=~\"$phase\"})", "legendFormat": "200 success (누적)", "refId": "A" }
+      ],
+      "title": "발급 성공 누적 (≤ total_qty 정합 확인)",
+      "type": "timeseries"
+    }
+  ]
+}
