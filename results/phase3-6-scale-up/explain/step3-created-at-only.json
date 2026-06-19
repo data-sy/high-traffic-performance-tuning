@@ -1,0 +1,39 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "102013.12"
+    },
+    "ordering_operation": {
+      "using_filesort": false,
+      "table": {
+        "table_name": "product",
+        "access_type": "index",
+        "key": "idx_product_created_at",
+        "used_key_parts": [
+          "created_at"
+        ],
+        "key_length": "9",
+        "rows_examined_per_scan": 20,
+        "rows_produced_per_join": 99331,
+        "filtered": "10.00",
+        "cost_info": {
+          "read_cost": "92079.99",
+          "eval_cost": "9933.13",
+          "prefix_cost": "102013.12",
+          "data_read_per_join": "197M"
+        },
+        "used_columns": [
+          "price",
+          "sales_cnt",
+          "stock",
+          "created_at",
+          "id",
+          "category",
+          "name"
+        ],
+        "attached_condition": "(`flashdeal`.`product`.`category` = '전자기기')"
+      }
+    }
+  }
+}

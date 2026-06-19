@@ -1,0 +1,2 @@
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	product	NULL	ref	idx_product_category_created	idx_product_category_created	1022	const	399796	100.00	NULL

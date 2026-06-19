@@ -1,0 +1,144 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: /Users/owner/high-traffic-performance-tuning/test/load/index-test-scale.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 8 max VUs, 1m0s max duration (incl. graceful stop):
+              * default: 8 looping VUs for 30s (gracefulStop: 30s)
+
+
+running (0m01.0s), 8/8 VUs, 0 complete and 0 interrupted iterations
+default   [   3% ] 8 VUs  01.0s/30s
+
+running (0m02.0s), 8/8 VUs, 0 complete and 0 interrupted iterations
+default   [   7% ] 8 VUs  02.0s/30s
+
+running (0m03.0s), 8/8 VUs, 0 complete and 0 interrupted iterations
+default   [  10% ] 8 VUs  03.0s/30s
+
+running (0m04.0s), 8/8 VUs, 0 complete and 0 interrupted iterations
+default   [  13% ] 8 VUs  04.0s/30s
+
+running (0m05.0s), 8/8 VUs, 0 complete and 0 interrupted iterations
+default   [  17% ] 8 VUs  05.0s/30s
+
+running (0m06.0s), 8/8 VUs, 8 complete and 0 interrupted iterations
+default   [  20% ] 8 VUs  06.0s/30s
+
+running (0m07.0s), 8/8 VUs, 8 complete and 0 interrupted iterations
+default   [  23% ] 8 VUs  07.0s/30s
+
+running (0m08.0s), 8/8 VUs, 8 complete and 0 interrupted iterations
+default   [  27% ] 8 VUs  08.0s/30s
+
+running (0m09.0s), 8/8 VUs, 8 complete and 0 interrupted iterations
+default   [  30% ] 8 VUs  09.0s/30s
+
+running (0m10.0s), 8/8 VUs, 8 complete and 0 interrupted iterations
+default   [  33% ] 8 VUs  10.0s/30s
+
+running (0m11.0s), 8/8 VUs, 8 complete and 0 interrupted iterations
+default   [  37% ] 8 VUs  11.0s/30s
+
+running (0m12.0s), 8/8 VUs, 16 complete and 0 interrupted iterations
+default   [  40% ] 8 VUs  12.0s/30s
+
+running (0m13.0s), 8/8 VUs, 16 complete and 0 interrupted iterations
+default   [  43% ] 8 VUs  13.0s/30s
+
+running (0m14.0s), 8/8 VUs, 16 complete and 0 interrupted iterations
+default   [  47% ] 8 VUs  14.0s/30s
+
+running (0m15.0s), 8/8 VUs, 16 complete and 0 interrupted iterations
+default   [  50% ] 8 VUs  15.0s/30s
+
+running (0m16.0s), 8/8 VUs, 16 complete and 0 interrupted iterations
+default   [  53% ] 8 VUs  16.0s/30s
+
+running (0m17.0s), 8/8 VUs, 16 complete and 0 interrupted iterations
+default   [  57% ] 8 VUs  17.0s/30s
+
+running (0m18.0s), 8/8 VUs, 16 complete and 0 interrupted iterations
+default   [  60% ] 8 VUs  18.0s/30s
+
+running (0m19.0s), 8/8 VUs, 23 complete and 0 interrupted iterations
+default   [  63% ] 8 VUs  19.0s/30s
+
+running (0m20.0s), 8/8 VUs, 24 complete and 0 interrupted iterations
+default   [  67% ] 8 VUs  20.0s/30s
+
+running (0m21.0s), 8/8 VUs, 24 complete and 0 interrupted iterations
+default   [  70% ] 8 VUs  21.0s/30s
+
+running (0m22.0s), 8/8 VUs, 24 complete and 0 interrupted iterations
+default   [  73% ] 8 VUs  22.0s/30s
+
+running (0m23.0s), 8/8 VUs, 24 complete and 0 interrupted iterations
+default   [  77% ] 8 VUs  23.0s/30s
+
+running (0m24.0s), 8/8 VUs, 24 complete and 0 interrupted iterations
+default   [  80% ] 8 VUs  24.0s/30s
+
+running (0m25.0s), 8/8 VUs, 24 complete and 0 interrupted iterations
+default   [  83% ] 8 VUs  25.0s/30s
+
+running (0m26.0s), 8/8 VUs, 31 complete and 0 interrupted iterations
+default   [  87% ] 8 VUs  26.0s/30s
+
+running (0m27.0s), 8/8 VUs, 32 complete and 0 interrupted iterations
+default   [  90% ] 8 VUs  27.0s/30s
+
+running (0m28.0s), 8/8 VUs, 32 complete and 0 interrupted iterations
+default   [  93% ] 8 VUs  28.0s/30s
+
+running (0m29.0s), 8/8 VUs, 32 complete and 0 interrupted iterations
+default   [  97% ] 8 VUs  29.0s/30s
+
+running (0m30.0s), 8/8 VUs, 32 complete and 0 interrupted iterations
+default   [ 100% ] 8 VUs  30.0s/30s
+
+running (0m31.0s), 8/8 VUs, 32 complete and 0 interrupted iterations
+default ↓ [ 100% ] 8 VUs  30s
+
+running (0m32.0s), 8/8 VUs, 32 complete and 0 interrupted iterations
+default ↓ [ 100% ] 8 VUs  30s
+
+running (0m33.0s), 8/8 VUs, 32 complete and 0 interrupted iterations
+default ↓ [ 100% ] 8 VUs  30s
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 40      1.203695/s
+    checks_succeeded...: 100.00% 40 out of 40
+    checks_failed......: 0.00%   0 out of 40
+
+    ✓ status is 200
+
+    HTTP
+    http_req_duration..............: avg=6.54s min=5.54s med=6.89s max=7.18s p(90)=7.14s p(95)=7.15s
+      { expected_response:true }...: avg=6.54s min=5.54s med=6.89s max=7.18s p(90)=7.14s p(95)=7.15s
+    http_req_failed................: 0.00%  0 out of 40
+    http_reqs......................: 40     1.203695/s
+
+    EXECUTION
+    iteration_duration.............: avg=6.64s min=5.64s med=6.99s max=7.28s p(90)=7.24s p(95)=7.25s
+    iterations.....................: 40     1.203695/s
+    vus............................: 8      min=8       max=8
+    vus_max........................: 8      min=8       max=8
+
+    NETWORK
+    data_received..................: 18 kB  531 B/s
+    data_sent......................: 5.8 kB 176 B/s
+
+
+
+
+running (0m33.2s), 0/8 VUs, 40 complete and 0 interrupted iterations
+default ✓ [ 100% ] 8 VUs  30s

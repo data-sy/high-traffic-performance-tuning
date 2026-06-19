@@ -1,0 +1,2 @@
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	product	NULL	index	NULL	idx_product_created_category	1031	NULL	20	10.00	Using where
