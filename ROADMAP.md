@@ -26,7 +26,6 @@
   - 스펙 미작성 — 착수 전 `specs/phase3/phase3-7-n-plus-one.md` 작성 필요
   - 권장: 위 스케일업(②)과 묶어 최종 규모에서 한 번에 측정 (재측정 중복 회피)
 - **[문서] 4개 시나리오 측정 결과 종합 리포트** — 포트폴리오용으로 인덱스·N+1·랭킹·동시성 결과를 한 문서로 종합 (각 `results/phaseN-*/` 기반, ①의 Grafana 대시보드 캡처 포함)
-- **[정리] 로컬 stale/거버넌스 브랜치 일괄 정리** — 지금은 보류, 나중 일괄. 머지 완료 브랜치(`fix/redis-config` #11, `phase/3-3-multi-instance` #10, `phase/3-4-async-issuance` #13)는 즉시 삭제 가능. `*-mainrun`·`sandbox/*`는 로컬 고유 내용이 있어 **필요한 정보만 추출 후 삭제**
 - **[Phase 3-5 후속] concurrency 503 분해 패널 실데이터 캡처** — `concurrency.json`의 ⓐ/ⓑ/ⓒ(503 원인) 패널은 정상이나, 503을 내려면 풀 포화/락대기 유발 부하(쿠폰 재고·Hikari 풀 크기 등 파라미터 조정)가 필요. 향후 동시성 재측정 맥락에서 실데이터로 캡처
 - (아이디어 추가 시 여기로)
 
@@ -36,6 +35,10 @@
 
 날짜·PR 번호는 git history 기준. 상세 변경 내역은 각 PR 또는 `specs/` 해당 phase 스펙 참조.
 
+- **[정리] 로컬 stale 브랜치·docker 잔여물 일괄 정리** — 2026-06-19
+  - 머지 완료 브랜치 3개(`fix/redis-config` #11, `phase/3-3-multi-instance` #10, `phase/3-4-async-issuance` #13) 삭제
+  - 로컬 고유 내용 브랜치(`*-mainrun`·`sandbox/*` 5개)는 `git bundle`로 로컬 아카이브 백업 후 워크트리 제거·브랜치 삭제(복원 가능)
+  - docker 잉여·고아 볼륨 정리 — 사용 중 4개만 보존(`docker_mysql-data` 1M/1.5M 데이터·`docker_grafana-storage`·redis·prometheus)
 - **[Phase 3-6 / 측정] 데이터 스케일업 — 100만/150만 대용량 재측정** — 2026-06-19 (PR [#15](https://github.com/data-sy/high-traffic-performance-tuning/pull/15), `phase/3-6-scale-up`)
   - `product` 1,000,000 / `order_item` 1,500,000 적재 후 시나리오① 인덱스·③ 랭킹을 동일 런 내부에서 재측정(전 step/ver 비포화 게이트 PASS — `http_req_failed≈0`·Hikari `pending==0`·statement-timeout 0)
   - **① 인덱스**: 무인덱스 `type=ALL`+filesort 319.6ms → 복합 인덱스 `type=ref`(no filesort) 12.7ms = **25.2×**. 잘못된 단일 인덱스(step3/5)는 `type=index`라도 무인덱스보다 느림(7~8s)도 재현
