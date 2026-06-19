@@ -8,20 +8,13 @@
 
 ## Now — 진행 중
 
-작업 순서: **Phase 3-6 데이터 스케일업(진짜 대용량 실증)**. Phase 3-5(관측성 코드화)는 PR [#14](https://github.com/data-sy/high-traffic-performance-tuning/pull/14)로 완료 — 그 위에서 스케일업 재측정을 처음부터 시각화 하에 수행한다(관측 레이어 없이 측정 후 재측정하는 중복 회피). (모니터링도 phase 단계로 취급 → 스케일업 3-6, N+1 3-7)
-
-- **[Phase 3-6 / 측정] 데이터 스케일업 — "진짜 대용량 처리" 실증** — 새 브랜치 (예: `phase/3-6-scale-up`, Phase 3-5(#14) 머지 후 main에서 분기)
-  - 목적: 포폴 헤드라인("100만 규모")을 실데이터로 입증 — 숫자가 "진짜 대용량을 돌렸다"를 스스로 말하게 만든다. 병목 테이블은 users(1K)가 아니라 **product(100K→100만)·orders(50K→확장)** (회원만 늘려선 인덱스·Redis 수치 불변)
-  - 범위: `scripts/generate-test-data.sh` 수정 → 시나리오① 인덱스(EXPLAIN+k6 5스텝)·③ 랭킹(DB ORDER BY vs Redis) 재측정 → Phase 3-5에서 만든 Grafana 대시보드로 before/after 캡처 → `results/`·문서 수치 갱신
-  - 묶음: 재측정 중복 회피 위해 **스케일업 → 인덱스·랭킹 재측정 → N+1**을 한 흐름으로(N+1 승격 시 함께)
-  - 주의: 동시성(④)은 스케일 무관(동시 요청 수에 의존) — 이 작업 선행 대상 아님. 출시/제출 전 신뢰도 위해 1회 필수
-  - 인계: Phase 3-5에서 발견한 `/api/v4/products` 200 미반환(index 대시보드 v4 시계열 미적재)을 이 단계 인덱스 재측정 중 함께 확인
+현재 활성 작업 없음 — **Phase 3-6 스케일업 완료**(아래 Done). 다음 후보는 **Phase 3-7 N+1**(Later) — 스케일업된 1M/1.5M 토대 위에서 최종 규모로 측정.
 
 ---
 
 ## Next — 다음 (착수 예정)
 
-- Phase 3-6(스케일업)이 Now로 진행 중 → 그 다음은 **Phase 3-7 N+1**(아래 Later, 스케일업과 묶음 측정)·**4개 시나리오 종합 리포트**(아래 Later). 우선순위가 오르면 여기로 승격.
+- Phase 3-6(스케일업) 완료(아래 Done) → 그 다음은 **Phase 3-7 N+1**(아래 Later, 스케일업된 규모에서 측정)·**4개 시나리오 종합 리포트**(아래 Later). 우선순위가 오르면 여기로 승격.
 
 ---
 
@@ -43,6 +36,12 @@
 
 날짜·PR 번호는 git history 기준. 상세 변경 내역은 각 PR 또는 `specs/` 해당 phase 스펙 참조.
 
+- **[Phase 3-6 / 측정] 데이터 스케일업 — 100만/150만 대용량 재측정** — 2026-06-19 (PR [#15](https://github.com/data-sy/high-traffic-performance-tuning/pull/15), `phase/3-6-scale-up`)
+  - `product` 1,000,000 / `order_item` 1,500,000 적재 후 시나리오① 인덱스·③ 랭킹을 동일 런 내부에서 재측정(전 step/ver 비포화 게이트 PASS — `http_req_failed≈0`·Hikari `pending==0`·statement-timeout 0)
+  - **① 인덱스**: 무인덱스 `type=ALL`+filesort 319.6ms → 복합 인덱스 `type=ref`(no filesort) 12.7ms = **25.2×**. 잘못된 단일 인덱스(step3/5)는 `type=index`라도 무인덱스보다 느림(7~8s)도 재현
+  - **③ 랭킹**: DB 1.5M `GROUP BY` 풀스캔(`type=ALL`) 39.3s → Redis Sorted Set 6.9ms = **약 5,700×**
+  - cross-scale 정량은 인프라-불변 `EXPLAIN rows`로: 무인덱스 스캔량 100K→1M 약 **10배**(99,742→993,313)
+  - 결과: `results/phase3-6-scale-up/`(EXPLAIN + k6 + 비포화 게이트), 회고 [`docs/reports/phase3-6-scale-up.md`](docs/reports/phase3-6-scale-up.md). 랭킹 대시보드 before/after 캡처는 후속 전시 보강
 - **[Phase 3-5 / 인프라·관측성] Grafana 관측 스택 코드화 (provisioning-as-code)** — 2026-06-16 (PR [#14](https://github.com/data-sy/high-traffic-performance-tuning/pull/14), `phase/3-5-monitoring`)
   - datasource(고정 `uid=prometheus`) + 시나리오 4종 대시보드(index/ranking/concurrency/async) + provider를 repo에 정의하고 compose에 bind-mount → `docker compose up`만으로 자동 로드(수동 클릭 0, `grafana-storage` 볼륨 불변)
   - 두 메트릭 소스 대시보드화: (a) actuator 스크레이프(HikariCP·HTTP·executor 큐) (b) k6 remote-write. PoC에서 k6 실명(`k6_`+`_total`/`_p95`·`_p99`) 확정 후 PromQL에 반영
@@ -50,7 +49,7 @@
 - **[시나리오 / 비동기 발급] 쿠폰 비동기 발급 — 큐 구조 사다리** — 2026-06 (PR [#13](https://github.com/data-sy/high-traffic-performance-tuning/pull/13), `phase/3-4-async-issuance`)
   - **v6a** @Async 인메모리 스레드풀 → **v6b** Redis List(BRPOP·ack 없음, 유실 재현) → **v6c** Redis Stream(컨슈머 그룹·PEL·XACK, 재전달 흡수)
   - 동기 발급(v3)의 "줄을 큐로 옮긴" 비용 프로파일 측정: 202 응답 ↔ E2E 발급 지연·큐 깊이·수렴 시간. 동시성 게이트(초과발급 0)는 유지
-  - 결과: `results/phase3-4-async/`, 회고 `docs/reports/phase3-4-async-issuance.md`, 지도 `docs/plan/study-async-expedition-map.html`, 스펙(역방향) `specs/phase3/phase3-4-async-issuance.md`
+  - 결과: `results/phase3-4-async/`, 회고 `docs/reports/phase3-4-async-issuance.md`, 스펙(역방향) `specs/phase3/phase3-4-async-issuance.md`
 - **[시나리오 ④ / 검증] 다중 인스턴스 정합 실증 (보강#1)** — 2026-06 (PR [#10](https://github.com/data-sy/high-traffic-performance-tuning/pull/10), `phase/3-3-multi-instance`)
   - 동일 v1~v5 락 코드 + 다중 인스턴스 토폴로지(앱 N replica + Nginx LB + Prometheus 타깃 N개), 하네스 무수정 재사용(`-e BASE=<LB>`·`noConnectionReuse` 설정만)
   - 결과: **v2(synchronized) 붕괴 재현** + **v3~v5 경계초월 정합 유지**(Σ 인스턴스 == DB) → "다중서버 = 공유 좌표 필요, v3가 이미 제공"을 데이터로 확정. "단일 JVM 미실증" 정직성 꼬리표 제거

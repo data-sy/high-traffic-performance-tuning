@@ -6,7 +6,7 @@
 ![Redis 7](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)
 
 대용량 트래픽(목표 **100만 회원 규모**)을 가정한 e-커머스 백엔드 성능 병목 개선 포트폴리오 — 각 시나리오를 `v1~v4` 단계별로 **재현·측정·판단**한다.
-현 측정은 **10만 스케일**(시드 실측 `product` 10만 · `order_item` 15만 · `order` 5만 · `user` 1천)이며, 100만 스케일업은 [ROADMAP](ROADMAP.md)의 백로그다.
+기본 측정은 **10만 스케일**(시드 실측 `product` 10만 · `order_item` 15만 · `order` 5만 · `user` 1천)이고, **100만 스케일업 재측정도 완료**했다(`product` 100만 · `order_item` 150만 — 인덱스 25×·랭킹 약 5,700×, Phase 3-6 → [`docs/reports/phase3-6-scale-up.md`](docs/reports/phase3-6-scale-up.md)).
 
 > 목표 규모와 현 측정 규모를 분리해 표기한다. README의 수치는 `results/`의 실측과 어긋나지 않는다 — 측정 규율을 README에서도 그대로 지킨다.
 
@@ -78,6 +78,7 @@ flowchart LR
 | ④ | **동시성 제어** | 쿠폰 한정수량 초과발급 | no lock → synchronized → `SELECT FOR UPDATE` → Redis 분산 락 (+v5 커스텀 락) | ✅ 완료 · **DB 행 락(v3) 채택** | **회고 리포트** → [`docs/reports/phase3-3-concurrency-lock.md`](docs/reports/phase3-3-concurrency-lock.md) |
 | — | **모니터링 인프라** | before/after 관측 | Actuator + Prometheus 메트릭, k6 remote write, Grafana | ✅ 완료 | [`docker/docker-compose.yml`](docker/docker-compose.yml) |
 
+> ① 인덱스·③ 랭킹은 100만/150만 규모에서도 재측정 완료 — 대용량 거동은 [`docs/reports/phase3-6-scale-up.md`](docs/reports/phase3-6-scale-up.md)(Phase 3-6).
 > ② N+1은 의도적으로 미착수 상태다 — 데이터 스케일업과 묶어 최종 규모에서 한 번에 측정할 계획([ROADMAP](ROADMAP.md)). 숨기지 않고 로드맵으로 둔다.
 
 ---
@@ -152,7 +153,7 @@ k6 run test/load/coupon-test.js         # ④ 동시성 (→ docs/reports/ 회�
 | 경로 | 내용 |
 |------|------|
 | [`results/`](results/) | 시나리오별 측정 결과 (EXPLAIN · k6 JSON · 정합성). `environment.md`에 측정 환경 |
-| [`docs/reports/`](docs/reports/) | 시나리오 회고 리포트 (현재 phase3-3 동시성 락) |
+| [`docs/reports/`](docs/reports/) | 시나리오 회고 리포트 (phase3-3 동시성 락 · phase3-4 비동기 발급 · phase3-6 스케일업) |
 | [`docs/`](docs/) | 트러블슈팅 노트, PR 컨벤션 |
 | [`specs/`](specs/) | phase별 실행 스펙 |
 | [`scripts/`](scripts/) | 시드 생성 · 인덱스 DDL · 측정 자동화 |
