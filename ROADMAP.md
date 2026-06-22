@@ -44,7 +44,8 @@
   - **① 인덱스**: 무인덱스 `type=ALL`+filesort 319.6ms → 복합 인덱스 `type=ref`(no filesort) 12.7ms = **25.2×**. 잘못된 단일 인덱스(step3/5)는 `type=index`라도 무인덱스보다 느림(7~8s)도 재현
   - **③ 랭킹**: DB 1.5M `GROUP BY` 풀스캔(`type=ALL`) 39.3s → Redis Sorted Set 6.9ms = **약 5,700×**
   - cross-scale 정량은 인프라-불변 `EXPLAIN rows`로: 무인덱스 스캔량 100K→1M 약 **10배**(99,742→993,313)
-  - 결과: `results/phase3-6-scale-up/`(EXPLAIN + k6 + 비포화 게이트), 회고 [`docs/reports/phase3-6-scale-up.md`](docs/reports/phase3-6-scale-up.md). 랭킹 대시보드 before/after 캡처는 후속 전시 보강
+  - 결과: `results/phase3-6-scale-up/`(EXPLAIN + k6 + 비포화 게이트), 회고 [`docs/reports/phase3-6-scale-up.md`](docs/reports/phase3-6-scale-up.md)
+  - **전시 캡처는 3-6 범위에서 의도적 제외(descoped):** 랭킹 대시보드 before/after 스크린샷은 헤드라인 수치(k6 p95)와 별개인 avg-latency 데모라 측정·머지를 막지 않도록 제외. 절차는 [`results/phase3-6-scale-up/screenshots-runbook.md`](results/phase3-6-scale-up/screenshots-runbook.md)에 보존 — 전시 보강 시 재개
 - **[Phase 3-5 / 인프라·관측성] Grafana 관측 스택 코드화 (provisioning-as-code)** — 2026-06-16 (PR [#14](https://github.com/data-sy/high-traffic-performance-tuning/pull/14), `phase/3-5-monitoring`)
   - datasource(고정 `uid=prometheus`) + 시나리오 4종 대시보드(index/ranking/concurrency/async) + provider를 repo에 정의하고 compose에 bind-mount → `docker compose up`만으로 자동 로드(수동 클릭 0, `grafana-storage` 볼륨 불변)
   - 두 메트릭 소스 대시보드화: (a) actuator 스크레이프(HikariCP·HTTP·executor 큐) (b) k6 remote-write. PoC에서 k6 실명(`k6_`+`_total`/`_p95`·`_p99`) 확정 후 PromQL에 반영
