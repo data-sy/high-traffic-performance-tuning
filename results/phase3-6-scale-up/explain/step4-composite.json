@@ -1,0 +1,44 @@
+{
+  "query_block": {
+    "select_id": 1,
+    "cost_info": {
+      "query_cost": "51925.05"
+    },
+    "ordering_operation": {
+      "using_filesort": false,
+      "table": {
+        "table_name": "product",
+        "access_type": "ref",
+        "possible_keys": [
+          "idx_product_category_created"
+        ],
+        "key": "idx_product_category_created",
+        "used_key_parts": [
+          "category"
+        ],
+        "key_length": "1022",
+        "ref": [
+          "const"
+        ],
+        "rows_examined_per_scan": 399796,
+        "rows_produced_per_join": 399796,
+        "filtered": "100.00",
+        "cost_info": {
+          "read_cost": "11945.45",
+          "eval_cost": "39979.60",
+          "prefix_cost": "51925.05",
+          "data_read_per_join": "793M"
+        },
+        "used_columns": [
+          "price",
+          "sales_cnt",
+          "stock",
+          "created_at",
+          "id",
+          "category",
+          "name"
+        ]
+      }
+    }
+  }
+}

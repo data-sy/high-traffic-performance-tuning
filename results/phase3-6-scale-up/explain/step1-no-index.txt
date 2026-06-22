@@ -1,0 +1,2 @@
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	product	NULL	ALL	NULL	NULL	NULL	NULL	993313	10.00	Using where; Using filesort
