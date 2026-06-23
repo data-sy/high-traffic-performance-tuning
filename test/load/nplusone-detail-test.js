@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
-// Phase 3-7 N+1 — 주문 상세 경로 부하 런(p95). 정본: specs/phase3/phase3-7-n-plus-one-draft.md (R3).
+// Phase 3-7 N+1 — 주문 상세 경로 부하 런(p95). 정본: specs/phase3/phase3-7-n-plus-one.md (R3).
 //
 // 상세는 M≈3(주문당 평균 아이템)이라 statement 수가 적고(≈5 vs 1) 워밍 시 노이즈가 지배 →
 // 상세의 우승 근거는 쿼리 수(격리 런)로 가른다. 이 부하 런은 보조 지표(p95)일 뿐(R3 #7).

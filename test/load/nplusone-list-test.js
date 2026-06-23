@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
-// Phase 3-7 N+1 — 주문 목록 경로 부하 런(p95). 정본: specs/phase3/phase3-7-n-plus-one-draft.md (R3).
+// Phase 3-7 N+1 — 주문 목록 경로 부하 런(p95). 정본: specs/phase3/phase3-7-n-plus-one.md (R3).
 //
 // R3 버퍼 워밍 함정 회피: userId를 전체 ~1,000명에 매 요청 랜덤 분산(워킹셋 > 버퍼풀 128MiB).
 // 단일 핫 userId면 첫 요청이 그 유저를 버퍼풀에 적재→이후 디스크 I/O 0(완전 워밍)→v1 p95≈v4 p95로

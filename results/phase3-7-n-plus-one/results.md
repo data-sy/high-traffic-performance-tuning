@@ -1,6 +1,6 @@
 # Phase 3-7 N+1 — 측정 결과
 
-> 측정일 2026-06-23. 정본 스펙: `specs/phase3/phase3-7-n-plus-one-draft.md`. 환경: Spring Boot 3.5.10 / Hibernate 6.6.41 / MySQL 8.0.
+> 측정일 2026-06-23. 정본 스펙: `specs/phase3/phase3-7-n-plus-one.md`. 환경: Spring Boot 3.5.10 / Hibernate 6.6.41 / MySQL 8.0.
 > **1차 지표 = 쿼리 수(격리 VU=1 런).** p95(부하 런)는 보조 — 무인덱스 풀스캔으로 절대치가 부풀려짐(EXPLAIN 백스톱 §5).
 > 데이터 규모: orders 500,000 / order_item 1,500,000 / product 1,000,000 / users ~1,000.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Phase 3-7 N+1 — 격리 런(VU=1, 단발 요청) 쿼리 수 측정.
-# 정본: specs/phase3/phase3-7-n-plus-one-draft.md (R2: 쿼리 수는 격리 런, p95는 부하 런으로 분리).
+# 정본: specs/phase3/phase3-7-n-plus-one.md (R2: 쿼리 수는 격리 런, p95는 부하 런으로 분리).
 #
 # 방법(스펙 R2): org.hibernate.SQL: DEBUG 로그의 statement 이벤트 수를 센다.
 #   - format_sql=true라도 멀티라인 SQL의 로거 필드는 첫 줄에만 찍히므로 `org.hibernate.SQL` 매칭 = 이벤트 수.

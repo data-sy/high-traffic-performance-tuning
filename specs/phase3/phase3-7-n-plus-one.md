@@ -1,6 +1,6 @@
-# Phase 3-7 — N+1 해결: 주문 목록(컬렉션)·상세(to-one) v1~v5 사다리 + 경로별 배선  **[DRAFT]**
+# Phase 3-7 — N+1 해결: 주문 목록(컬렉션)·상세(to-one) v1~v5 사다리 + 경로별 배선
 
-> **DRAFT 상태** — `/audit-doc`(Healthy) + `/design-review` 3라운드 반영. 핵심 정정: v2 EAGER 실제 거동 확정 — **목록만 N+1 시연(상세는 `find()`가 흡수), 목록 쿼리수 ≈`1+N`(대표상품이 EAGER `@ManyToOne`=JOIN 흡수, 실측 확정)**, v1 `1+2N`과 구조 대비. R1 격리·R2 2단계·R3 부하모델(전제검증·부하점) 확정. 잔여는 측정으로 확정할 경험값. `-draft`는 사람 1회 확인 후 제거.
+> **확정(2026-06-23).** `/audit-doc`(Healthy) + `/design-review` 3라운드 + **측정 실측으로 표 확정**. 핵심: v2 EAGER 실제 거동 실측 — **목록만 N+1 시연(상세는 `find()`가 흡수), 목록 576=`1+N`(대표상품 EAGER `@ManyToOne`=JOIN 흡수)**, v1 1150(`1+2N`−dedup)과 구조 대비. R1 격리·R2 2단계·R3 부하모델 적용. **전체 측정 결과·p95·EXPLAIN 캐비엇: `results/phase3-7-n-plus-one/results.md`.**
 
 ## Context (현재 상태)
 - Phase 3-1~3-6 완료. 데이터 스케일업됨(DB 실측): `product` 1,000,000 / `order_item` 1,500,000 / `orders` ~500,000 / `users` ~1,000 (**사용자당 평균 ~500주문, max 584**, 주문당 평균 ~3 아이템).
@@ -157,15 +157,15 @@ v4 "쿼리 1회"가 사다리의 끝이 아니다. **세 축**으로 보면 우�
 
 ---
 
-## Work Order
-순차 진행, **각 Step 후 일시정지 → 사람 검증 → `/commit`**. R1·R2·R3는 design-review로 확정됨(위 반영).
-1. **확정본 사람 1회 확인 → `-draft` 제거**
-2. Step A (v1 baseline + DTO/조회 표면) → 검증 → commit
-3. Step B (v2) → 검증 → commit
-4. Step C (v3) → 검증 → commit
-5. Step D (v4) → 검증 → commit
-6. Step E (v5 DTO Projection) → 검증 → commit
-7. Step F (측정) → 검증 → commit
+## Work Order (완료 — 2026-06-23)
+R1·R2·R3는 design-review로 확정. 구현 A~E + 측정 F 완료, 측정으로 표 확정 후 `-draft` 제거.
+1. ~~확정본 사람 확인 → `-draft` 제거~~ ✅ (측정 후 사람 승인)
+2. ~~Step A (v1 baseline + DTO/조회 표면)~~ ✅ commit `a03cff7`
+3. ~~Step B (v2 EAGER)~~ ✅ commit `b6b033d`
+4. ~~Step C (v3 batch)~~ ✅ commit `6154d5e`
+5. ~~Step D (v4 Fetch Join)~~ ✅ commit `49b80c3`
+6. ~~Step E (v5 DTO Projection)~~ ✅ commit `9a71feb`
+7. ~~Step F (측정)~~ ✅ commit `161cd3d` — 결과 `results/phase3-7-n-plus-one/results.md`
 8. `/pr`
 
 ## Outside Claude Code Scope (human tasks)

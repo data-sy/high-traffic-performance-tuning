@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Phase 3-7 N+1 — 부하 런(p95) + 비포화 게이트.
-# 정본: specs/phase3/phase3-7-n-plus-one-draft.md (R3). 게이트: http_req_failed≈0 · Hikari pending==0.
+# 정본: specs/phase3/phase3-7-n-plus-one.md (R3). 게이트: http_req_failed≈0 · Hikari pending==0.
 #
 # k6를 백그라운드로 돌리며 actuator/prometheus의 hikaricp_connections_pending을 샘플링,
 # max pending>0이면 포화로 판정(부하점 과다 → VUS 낮춰 재실행). p95는 보조 지표(목록의 1차 근거는 쿼리 수).
