@@ -1,0 +1,5 @@
+=== Phase 3-7 query-count [v2] (격리 VU=1) ===
+APP_LOG=results/phase3-7-n-plus-one/app-eager.log  user=1  order=94
+목록 GET /api/v2/users/1/orders  -> HTTP 200, 쿼리 576
+상세 GET /api/v2/orders/94       -> HTTP 200, 쿼리 1
+OK

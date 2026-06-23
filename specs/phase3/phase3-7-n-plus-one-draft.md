@@ -33,13 +33,15 @@
 
 ### v 사다리와 쿼리 수 (목록 경로: 주문 N건; 요약 = itemCount + 대표상품명)
 
-| 버전 | 전략 | 목록 쿼리 수 | 핵심 교훈 |
-|---|---|---|---|
-| **v1** | LAZY default + 루프 접근 | `1 + 2N` (상한) | N+1 재현(baseline). 컬렉션 N + 대표상품 N(LAZY `@ManyToOne`=별도 SELECT). 1차 캐시 dedup 시 product<N |
-| **v2** | **EAGER (엔티티 즉시로딩)** | **목록 ≈`1+N`** (실측 확정) · 상세 ~2 | **"EAGER로도 N+1 안 사라진다"** — 파생쿼리는 EAGER 컬렉션을 secondary SELECT N회로 채움(N+1 잔존). 단 대표상품은 EAGER `@ManyToOne`=**JOIN**으로 컬렉션 SELECT에 흡수→별도 SELECT 아님(∴ `1+2N` 아닌 ≈`1+N`). **`find()` by PK는 조인 흡수→상세는 N+1 미발생**이라 시연은 목록만(B1·#1) |
-| **v3** | `@BatchSize` / `default_batch_fetch_size` | `1 + 2⌈N/b⌉` | IN절로 secondary SELECT 묶기. N+1 → 소수 쿼리 |
-| **v4** | Fetch Join (JPQL `join fetch … distinct`) | `1` | 단일 쿼리 — **단건 상세에 최적**. 1:N+페이징엔 부적합(메모리 페이징 경고) |
-| **v5** | DTO Projection (JPQL `new`, **필요 칸만**) | 헤더1 + 요약 배치(≈v3) · *상세는 2회 고정* | 쿼리 최소화를 양보하고 **전송량·적재비용**을 깎음 — "쿼리 수가 전부가 아니다". 조회 전용·대용량 |
+> **실측 확정(2026-06-23, N=575·M=5).** 전체 결과·방법·p95·EXPLAIN 캐비엇: `results/phase3-7-n-plus-one/results.md`.
+
+| 버전 | 전략 | 목록 쿼리 수(공식) | **목록 실측** | **상세 실측** | 핵심 교훈 |
+|---|---|---|---|---|---|
+| **v1** | LAZY default + 루프 접근 | `1 + 2N` (상한) | **1150** | **7** | N+1 재현(baseline). 컬렉션 N + 대표상품 N(LAZY `@ManyToOne`=별도 SELECT). 1150=1+2N−1(product 1건 1차캐시 dedup). 상세 2+M=7 |
+| **v2** | **EAGER (엔티티 즉시로딩)** | **목록 ≈`1+N`** | **576** | **1** | **"EAGER로도 N+1 안 사라진다"** — 파생쿼리는 EAGER 컬렉션을 secondary SELECT N회로 채움(N+1 잔존). 대표상품은 EAGER `@ManyToOne`=**JOIN** 흡수→별도 SELECT 0(∴ 576=1+N, ≠v1 1+2N). **`find()` by PK는 조인 흡수→상세 단일 쿼리(=1), N+1 미발생** — 시연은 목록만(B1·#1) |
+| **v3** | `@BatchSize` / `default_batch_fetch_size`(=100) | `1 + 2⌈N/b⌉` | **27** | **3** | IN절로 secondary SELECT 묶기. 1150→27. 공식은 근사(Hibernate 배치가 product 집합 전반 IN 로딩). N+1 → 소수 쿼리 |
+| **v4** | Fetch Join (JPQL `join fetch … distinct`) | `1` | **1** | **1** | 단일 쿼리 — **단건 상세에 최적**. 1:N+페이징엔 부적합(메모리 페이징 경고) |
+| **v5** | DTO Projection (JPQL `new`, **필요 칸만**) | 헤더1 + 요약 IN 1 · 상세 2 | **2** | **2** | 쿼리 최소화를 양보하고 **전송량·적재비용**을 깎음 — "쿼리 수가 전부가 아니다". 목록 p95 최속(470ms)이 방증. 조회 전용·대용량 |
 
 > **다중 컬렉션 함정 없음(design-review B2):** 이 스키마의 컬렉션은 `Order.orderItems` 하나뿐(OrderItem→Product는 to-one)이라 `MultipleBagFetchException`은 **재현되지 않는다**. v4의 `join fetch orderItems + join fetch product`(컬렉션 1 + to-one 1)는 안전. v4 함정은 **1:N fetch join + 페이징(메모리 페이징)** 하나로 한정.
 

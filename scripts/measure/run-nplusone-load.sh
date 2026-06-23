@@ -46,11 +46,12 @@ while kill -0 "$K6_PID" 2>/dev/null; do
 done
 wait "$K6_PID" || { echo "ABORT: k6 비정상 종료(로그 확인: $OUTDIR/${PATHKIND}-${VERSION}-k6.log)" >&2; exit 2; }
 
-# 결과 파싱(p95 ms, 실패율).
-P95=$(awk -F'[:,]' '/"p\(95\)"/{gsub(/[^0-9.]/,"",$2); print $2; exit}' "$SUMMARY" 2>/dev/null || echo NA)
-FAILRATE=$(grep -o '"http_req_failed"[^}]*"value":[0-9.]*' "$SUMMARY" | grep -o '"value":[0-9.]*' | head -1 | cut -d: -f2 || echo NA)
+# 결과 파싱(p95 ms, 실패율). k6 v1.5 --summary-export: 값이 metric 이름 바로 아래(.values 없음).
+P95=$(jq -r '.metrics.http_req_duration."p(95)" // "NA"' "$SUMMARY" 2>/dev/null || echo NA)
+FAILRATE=$(jq -r '.metrics.http_req_failed.value // "NA"' "$SUMMARY" 2>/dev/null || echo NA)
+REQS=$(jq -r '.metrics.http_reqs.count // "NA"' "$SUMMARY" 2>/dev/null || echo NA)
 
-echo "p95(ms)=$P95  http_req_failed=$FAILRATE  max_pending=$MAXP"
+echo "p95(ms)=$P95  http_req_failed=$FAILRATE  reqs=$REQS  max_pending=$MAXP"
 
 # 비포화 게이트.
 GATE_OK=1
@@ -59,5 +60,5 @@ if [[ "$FAILRATE" != "NA" ]]; then
     awk -v f="$FAILRATE" 'BEGIN{exit !(f<0.01)}' || { echo "GATE FAIL: http_req_failed=$FAILRATE (≥1%)"; GATE_OK=0; }
 fi
 
-printf '%s\t%s\t%s\t%s\t%s\n' "$PATHKIND" "$VERSION" "$P95" "$FAILRATE" "$MAXP" >> "${OUT_TSV:-/dev/null}"
+printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$PATHKIND" "$VERSION" "$P95" "$FAILRATE" "$REQS" "$MAXP" >> "${OUT_TSV:-/dev/null}"
 [[ "$GATE_OK" == 1 ]] && echo "GATE OK" || { echo "GATE 위반 — 결과 무효"; exit 3; }

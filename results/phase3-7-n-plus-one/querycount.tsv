@@ -1,0 +1,6 @@
+v1	1150	7
+v4	1	1
+v5	2	2
+v3	27	3
+v3 default_batch_fetch_size=100 (control pin); measured list=27 detail=3 @ N=575,M=5
+v2	576	1
