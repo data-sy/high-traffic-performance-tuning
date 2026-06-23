@@ -26,7 +26,7 @@ flowchart LR
         R["③ 랭킹 Redis"]:::done
         C4["④ 동시성 락"]:::done
         AS["비동기 발급 큐"]:::done
-        N["② N+1 Fetch Join"]:::next
+        N["② N+1 경로별 배선"]:::done
     end
 
     subgraph S2["Stage 2 · 규모/측정 (Phase 3)"]
@@ -58,7 +58,7 @@ flowchart LR
     A & B & C & D & E --> FF
 ```
 
-범례: 🟩 완료 · 🟨 다음 착수(② N+1) · 🟦 미착수 후보 · 🟪 capstone
+범례: 🟩 완료 · 🟦 미착수 후보 · 🟪 capstone  (다음 착수는 아래 Now/Next 칸반이 정본)
 
 **Phase 매핑:** Stage 0 = Phase 1·2(토대) · **Stage 1~3 = Phase 3**(단일 노드 모놀리식 성능 — 코어 4종 + 캐시·페이지네이션·풀·회복탄력성·배치) · **Stage 4 = Phase 4**(분산·이벤트 토폴로지). phase 경계 기준은 "원래 4종을 다 했나"가 아니라 **단일 노드 vs 분산**이다 — ② N+1(3-7)은 코어 4종을 닫지만 Phase 3의 끝은 아니며, A~E도 단일 노드라 Phase 3(3-8~)에 속한다. phase는 더 잘게 쪼개지 않는다(가벼운 phase-spec 체계 유지, 아래 「작업 단위 분할 원칙」).
 
@@ -71,7 +71,7 @@ flowchart LR
 
 **Stage 1 — 단일 쿼리/자원 최적화 (핵심 4종 + 심화)**
 - [x] ① 인덱스 최적화 — 복합 인덱스 (category, created_at)
-- [ ] ② N+1 해결 — Fetch Join (v1 LAZY→v2 EAGER→v3 @BatchSize→v4 Fetch Join) · **Phase 3-7로 연기**
+- [x] ② N+1 해결 — 경로별 배선 (v1 LAZY→v2 EAGER→v3 @BatchSize→v4 Fetch Join→v5 DTO Projection) · **Phase 3-7 완료**
 - [x] ③ 실시간 랭킹 — Redis Sorted Set
 - [x] ④ 동시성 제어 — 분산 락 (+ 다중 인스턴스 정합 실증)
 - [x] 비동기 발급 — 큐 사다리 (@Async → Redis List → Redis Stream)
@@ -98,17 +98,13 @@ flowchart LR
 
 ## Now — 진행 중
 
-**Phase 3-7 / 시나리오 ② N+1 해결 — 착수** (브랜치 `phase/3-7-n-plus-one`)
-- 단계: **v1** LAZY default → **v2** EAGER → **v3** `@BatchSize` → **v4** Fetch Join
-- 엔티티 준비 완료: `OrderItem → Product @ManyToOne(LAZY)` (N+1 재현용, phase2 정의)
-- 스펙 미작성 — `specs/phase3/phase3-7-n-plus-one.md` 작성부터. 스케일업된 1M/1.5M 토대 위에서 최종 규모로 측정
-- 코어 시나리오 4종의 마지막 빈칸(마스터 체크리스트 Stage 1 완성)
+- (없음 — Phase 3-7 N+1 완료. 코어 시나리오 4종 마무리. 다음 착수는 Next 참조)
 
 ---
 
 ## Next — 다음 (착수 예정)
 
-- Phase 3-7 N+1은 Now로 승격(위). 그 다음 후보: **4개 시나리오 종합 리포트**(N+1 완료 후 4종 종합)·**신규 단일 노드 주제 A~E**(마스터 체크리스트 Stage 2~3, 권장순 A→B→C→D→E). 우선순위가 오르면 여기로 승격.
+- Phase 3-7 N+1 완료(Done). 다음 후보: **4개 시나리오 종합 리포트**(코어 4종 종합)·**신규 단일 노드 주제 A~E**(마스터 체크리스트 Stage 2~3, 권장순 A→B→C→D→E). 우선순위가 오르면 여기로 승격.
 
 ---
 
@@ -134,6 +130,12 @@ flowchart LR
 
 날짜·PR 번호는 git history 기준. 상세 변경 내역은 각 PR 또는 `specs/` 해당 phase 스펙 참조.
 
+- **[Phase 3-7 / 시나리오 ② N+1] 주문 조회 N+1 — v1~v5 사다리·경로별 배선** — 2026-06-23 (PR [#16](https://github.com/data-sy/high-traffic-performance-tuning/pull/16), `phase/3-7-n-plus-one`)
+  - 주문 **목록**(컬렉션 N+1)·**상세**(to-one N+1) 두 경로를 v1 LAZY→v2 EAGER→v3 @BatchSize→v4 Fetch Join→v5 DTO Projection으로 해소. **스키마 변경 0·신규 의존성 0**(v5는 QueryDSL 아닌 JPQL 생성자 표현식)
+  - **쿼리 수(1차 지표, 격리 VU=1)**: 목록 v1 1150→v4 1·v5 2·v3 27, 상세 v1 7→v2/v4 1. v2 EAGER는 목록 N+1 잔존(1+N, 대표상품 JOIN 흡수)·상세는 `find()`가 흡수(1)
+  - **p95(보조)**: 목록 v5 470ms < v4 1586ms < v3 3347ms ≪ v1(콜드 86–154s, 8VU 부하 0건 완료). v5가 쿼리 수는 v4보다 많아도 전송·적재 최소라 최속
+  - **EXPLAIN 백스톱**: `order_id`·`user_id` 무인덱스 풀스캔 → p95는 보조, 쿼리 수가 인덱스-무관 1차 지표. **코어 시나리오 4종 완성**(마스터 체크리스트 Stage 1)
+  - 결과: `results/phase3-7-n-plus-one/`, 회고 [`docs/reports/phase3-7-n-plus-one.md`](docs/reports/phase3-7-n-plus-one.md), 스펙 `specs/phase3/phase3-7-n-plus-one.md`
 - **[정리] 로컬 stale 브랜치·docker 잔여물 일괄 정리** — 2026-06-19
   - 머지 완료 브랜치 3개(`fix/redis-config` #11, `phase/3-3-multi-instance` #10, `phase/3-4-async-issuance` #13) 삭제
   - 로컬 고유 내용 브랜치(`*-mainrun`·`sandbox/*` 5개)는 `git bundle`로 로컬 아카이브 백업 후 워크트리 제거·브랜치 삭제(복원 가능)

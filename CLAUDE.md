@@ -6,7 +6,7 @@ Demonstrates measurable before/after improvements across 4 scenarios.
 
 ## Scenarios
 1. **Index Optimization** — Product list query with composite index (category, created_at)
-2. **N+1 Resolution** — Order detail query with Fetch Join
+2. **N+1 Resolution** — Order list & detail query, path-based wiring (v3 @BatchSize / v4 Fetch Join / v5 DTO Projection)
 3. **Real-time Ranking** — Redis Sorted Set vs DB ORDER BY
 4. **Concurrency Control** — Coupon issuance with distributed lock
 
