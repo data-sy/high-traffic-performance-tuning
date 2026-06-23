@@ -159,14 +159,15 @@ v4 "쿼리 1회"가 사다리의 끝이 아니다. **세 축**으로 보면 우�
 
 ## Work Order (완료 — 2026-06-23)
 R1·R2·R3는 design-review로 확정. 구현 A~E + 측정 F 완료, 측정으로 표 확정 후 `-draft` 제거.
-1. ~~확정본 사람 확인 → `-draft` 제거~~ ✅ (측정 후 사람 승인)
-2. ~~Step A (v1 baseline + DTO/조회 표면)~~ ✅ commit `a03cff7`
-3. ~~Step B (v2 EAGER)~~ ✅ commit `b6b033d`
-4. ~~Step C (v3 batch)~~ ✅ commit `6154d5e`
-5. ~~Step D (v4 Fetch Join)~~ ✅ commit `49b80c3`
-6. ~~Step E (v5 DTO Projection)~~ ✅ commit `9a71feb`
-7. ~~Step F (측정)~~ ✅ commit `161cd3d` — 결과 `results/phase3-7-n-plus-one/results.md`
-8. `/pr`
+
+- [x] 확정본 사람 확인 → `-draft` 제거 (측정 후 사람 승인)
+- [x] Step A — v1 baseline + DTO/조회 표면 (`a03cff7`)
+- [x] Step B — v2 EAGER (`b6b033d`)
+- [x] Step C — v3 batch (`6154d5e`)
+- [x] Step D — v4 Fetch Join (`49b80c3`)
+- [x] Step E — v5 DTO Projection (`9a71feb`)
+- [x] Step F — 측정 (`161cd3d`; 결과 `results/phase3-7-n-plus-one/results.md`)
+- [x] `/pr` — PR #16
 
 ## Outside Claude Code Scope (human tasks)
 - 각 검증 수동 실행, 측정 스크립트 실행·해석(쿼리수 before/after, k6 p95)
@@ -178,14 +179,14 @@ R1·R2·R3는 design-review로 확정. 구현 A~E + 측정 F 완료, 측정으�
 ## 해소된 안건 / 남은 Open Questions
 
 **검증으로 해소(audit-doc·design-review):**
-1. ~~R1 버전 격리~~ **확정** — v4/v5 쿼리레벨 공존, v2(EAGER)/v3(batch)는 단독 측정 런 토글 + v1 baseline 런타임 assert(위 R1).
-2. ~~R2 쿼리 카운트~~ **확정** — 쿼리 수=격리 런(VU=1), p95=부하 런 2단계 분리(위 R2).
-3. ~~목록 N 크기~~ **해소(audit)** — 실측 ~500/유저로 추가 시드 불필요. 페이징 시 N 축소 → 비페이징/큰 size.
-4. ~~R-Q4 다중 컬렉션 예외~~ **폐기(B2)** — 컬렉션 하나뿐이라 `MultipleBagFetchException` 재현 불가. v4 함정은 "1:N+페이징"만 유효.
-5. ~~v1 목록 baseline~~ **정정(B3)** — `1+2N`(컬렉션 N + 대표상품 N), v3=`1+2⌈N/b⌉`.
-6. ~~v2 정체성~~ **확정(B1)** — `@EntityGraph` 아님, 정통 엔티티 EAGER.
+1. **R1 버전 격리** — 확정. v4/v5 쿼리레벨 공존, v2(EAGER)/v3(batch)는 단독 측정 런 토글 + v1 baseline 런타임 assert(위 R1).
+2. **R2 쿼리 카운트** — 확정. 쿼리 수=격리 런(VU=1), p95=부하 런 2단계 분리(위 R2).
+3. **목록 N 크기** — 해소(audit). 실측 ~500/유저로 추가 시드 불필요. 페이징 시 N 축소 → 비페이징/큰 size.
+4. **R-Q4 다중 컬렉션 예외** — 폐기(B2). 컬렉션 하나뿐이라 `MultipleBagFetchException` 재현 불가. v4 함정은 "1:N+페이징"만 유효.
+5. **v1 목록 baseline** — 정정(B3). `1+2N`(컬렉션 N + 대표상품 N), v3=`1+2⌈N/b⌉`.
+6. **v2 정체성** — 확정(B1). `@EntityGraph` 아님, 정통 엔티티 EAGER.
 
-**남은 Open Questions (구현 시 확정):**
-- **R-Q5 v5 목록 파생값 투영** — 목록 요약 `itemCount`/`firstProductName`을 JPQL 생성자 표현식으로 (a) `count`/`min` 집계를 헤더 쿼리에 포함할지, (b) 헤더만 투영하고 요약은 v3식 2단계 배치로 채울지.
-- **R-Q6 v5 전송량·적재 대리지표** — 축②·③을 로컬 측정값(응답 바이트, Statistics load count, 적재 엔티티 수=0)으로 노출·집계하는 방법(R2 연계).
+**구현·측정에서 확정(2026-06-23):**
+- **R-Q5 v5 목록 파생값 투영** — (b)로 확정: 헤더 투영 1회 + 라인요약 IN 투영 1회 = 2쿼리(엔티티 적재 0). 라인요약은 product 조인으로 (orderId, itemId, productName) 투영 후 서비스에서 집계.
+- **R-Q6 v5 전송량·적재 대리지표** — 목록 p95(v5 470ms 최속)로 간접 입증, 직접 정량(응답 바이트·적재 엔티티 수=0)은 보조 측정으로 범위 한정(`results.md` §4.2·§8).
 - **C-c 전송량 공정성** — v5 목록을 측정에 쓰면 필드 집합을 v1~v4와 동일하게 맞추거나(아니면 적은 칸이라 작은 게 당연), 전송량 비교는 동일 DTO인 **상세 경로로 한정**.
