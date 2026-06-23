@@ -1,6 +1,6 @@
 # Phase 3-7 — N+1 해결: 주문 목록(컬렉션)·상세(to-one) v1~v5 사다리 + 경로별 배선  **[DRAFT]**
 
-> **DRAFT 상태** — 이 문서는 초안이다. 확정 전 다른 세션에서 `/audit-doc`(가정 ↔ 코드 대조)와 `/design-review`(측정 타당성·실패 모드)로 검증한 뒤 `-draft` 접미사를 떼고 확정한다. 특히 아래 **「설계 리스크 R1: 버전 격리」**가 핵심 검증 대상이다.
+> **DRAFT 상태** — `/audit-doc`(Healthy) + `/design-review` 3라운드 반영. 핵심 정정: v2 EAGER 실제 거동 확정 — **목록만 N+1 시연(상세는 `find()`가 흡수), 목록 쿼리수 ≈`1+N`(대표상품이 EAGER `@ManyToOne`=JOIN 흡수, 실측 확정)**, v1 `1+2N`과 구조 대비. R1 격리·R2 2단계·R3 부하모델(전제검증·부하점) 확정. 잔여는 측정으로 확정할 경험값. `-draft`는 사람 1회 확인 후 제거.
 
 ## Context (현재 상태)
 - Phase 3-1~3-6 완료. 데이터 스케일업됨(DB 실측): `product` 1,000,000 / `order_item` 1,500,000 / `orders` ~500,000 / `users` ~1,000 (**사용자당 평균 ~500주문, max 584**, 주문당 평균 ~3 아이템).
@@ -15,8 +15,8 @@
 **착지점(서사의 핵심):** 단일 정답(v4 "쿼리 1회") 대신, **경로의 성격에 따라 v3·v4·v5를 갈라 쓰는 "경로별 배선"** 결론으로 끝낸다. 우승 기준은 "가장 빠름/가장 적은 쿼리"가 아니라 **예측 가능성**(데이터가 커져도 쿼리·메모리가 고정)이다. → 아래 [경로별 배선] 절.
 
 ## 시나리오 서사 (왜 N+1이 터지나)
-1. **주문 목록 (컬렉션 N+1):** 손님이 마이페이지 "내 주문 목록"을 연다. 주문 수백 건(실측 평균 ~500건/유저, max 584)을 조회한 뒤, 각 주문의 "상품 N개 / 대표상품명" 요약을 보여주려 `order.getOrderItems()`를 루프에서 접근 → 주문 1건마다 `order_item` SELECT = **1 + N 쿼리(N≈500)**.
-2. **주문 상세 (to-one N+1):** 손님이 주문 하나를 펼친다. 담긴 아이템 M개의 상품명·가격을 그리려 `item.getProduct().getName()`을 루프 접근 → 아이템 1개마다 `product` SELECT = **1 + M 쿼리**. (목록에서 상세 결합 시 **1 + N + N×M** 폭발)
+1. **주문 목록 (컬렉션 N+1):** 손님이 마이페이지 "내 주문 목록"을 연다. 주문 수백 건(실측 평균 ~500건/유저, max 584)을 조회한 뒤, 각 주문의 **요약**(상품 개수 `itemCount` + 대표상품명 `firstProductName`)을 그리려 `order.getOrderItems()`(주문당 컬렉션 SELECT = N회) + 첫 아이템의 `product`(N회)를 루프 접근 → **1 + 2N 쿼리(N≈500)**. *대표상품은 아이템을 id 오름차순 정렬한 첫 항목으로 정의(버전 간 응답 결정성 — 컬렉션 순서가 미정의면 v1/v4/v5 응답이 어긋남).*
+2. **주문 상세 (to-one N+1):** 손님이 주문 하나를 펼친다. 주문(1) + 그 주문의 아이템 컬렉션(1) + 아이템 M개의 `product`(M회) → **2 + M 쿼리**. (상세는 *한* 주문만 펼치므로 목록의 폭발과는 별개 — 목록을 상세까지 펼치는 화면은 없음.)
 
 → 두 경로 모두 **Order 집합 표면**에 살아 기존 시나리오(① 인덱스=Product목록, ③ 랭킹=salesCount, ④ 동시성=Coupon)와 **겹치지 않는다.**
 
@@ -31,15 +31,17 @@
 | `GET /api/v{n}/users/{userId}/orders` | 주문 목록 | 컬렉션 N+1 (Order→OrderItems) |
 | `GET /api/v{n}/orders/{orderId}` | 주문 상세 | to-one N+1 (OrderItem→Product), 목록 결합 시 다단계 |
 
-### v 사다리와 예상 쿼리 수 (목록: 주문 N건, 주문당 아이템 M개 가정)
+### v 사다리와 쿼리 수 (목록 경로: 주문 N건; 요약 = itemCount + 대표상품명)
 
 | 버전 | 전략 | 목록 쿼리 수 | 핵심 교훈 |
 |---|---|---|---|
-| **v1** | LAZY default + 루프 접근 | `1 + N + N×M` | N+1 폭발 재현(baseline) |
-| **v2** | EAGER (즉시로딩) | (R1 참조) | **"EAGER로 바꿔도 N+1 안 사라진다"** — 파생쿼리에선 secondary SELECT N번. 컬렉션 join 시 행 곱·`MultipleBagFetchException` 함정 |
-| **v3** | `@BatchSize` / batch fetch | `1 + ⌈N/b⌉ + ⌈N×M/b⌉` | IN절로 secondary SELECT 묶기. N+1 → 소수 쿼리 |
-| **v4** | Fetch Join (JPQL `join fetch`) | `1` (컬렉션은 `distinct`) | 단일 쿼리 착지 — **단건 상세에 최적**. 단 1:N+페이징·다중컬렉션 함정 |
-| **v5** | DTO Projection (JPQL `new` 생성자 표현식, **필요 칸만**) | `2` (헤더+라인 분리, **데이터 무관 고정**) | 쿼리 1회를 양보하고 **전송량·적재비용**을 깎음 — "쿼리 수가 전부가 아니다". 조회 전용·대용량 경로 |
+| **v1** | LAZY default + 루프 접근 | `1 + 2N` (상한) | N+1 재현(baseline). 컬렉션 N + 대표상품 N(LAZY `@ManyToOne`=별도 SELECT). 1차 캐시 dedup 시 product<N |
+| **v2** | **EAGER (엔티티 즉시로딩)** | **목록 ≈`1+N`** (실측 확정) · 상세 ~2 | **"EAGER로도 N+1 안 사라진다"** — 파생쿼리는 EAGER 컬렉션을 secondary SELECT N회로 채움(N+1 잔존). 단 대표상품은 EAGER `@ManyToOne`=**JOIN**으로 컬렉션 SELECT에 흡수→별도 SELECT 아님(∴ `1+2N` 아닌 ≈`1+N`). **`find()` by PK는 조인 흡수→상세는 N+1 미발생**이라 시연은 목록만(B1·#1) |
+| **v3** | `@BatchSize` / `default_batch_fetch_size` | `1 + 2⌈N/b⌉` | IN절로 secondary SELECT 묶기. N+1 → 소수 쿼리 |
+| **v4** | Fetch Join (JPQL `join fetch … distinct`) | `1` | 단일 쿼리 — **단건 상세에 최적**. 1:N+페이징엔 부적합(메모리 페이징 경고) |
+| **v5** | DTO Projection (JPQL `new`, **필요 칸만**) | 헤더1 + 요약 배치(≈v3) · *상세는 2회 고정* | 쿼리 최소화를 양보하고 **전송량·적재비용**을 깎음 — "쿼리 수가 전부가 아니다". 조회 전용·대용량 |
+
+> **다중 컬렉션 함정 없음(design-review B2):** 이 스키마의 컬렉션은 `Order.orderItems` 하나뿐(OrderItem→Product는 to-one)이라 `MultipleBagFetchException`은 **재현되지 않는다**. v4의 `join fetch orderItems + join fetch product`(컬렉션 1 + to-one 1)는 안전. v4 함정은 **1:N fetch join + 페이징(메모리 페이징)** 하나로 한정.
 
 > **v5는 QueryDSL을 쓰지 않는다.** 학습자료(`nplusone-ladder.html`)는 QueryDSL `Projections`를 쓰지만, 본 프로젝트는 신규 의존성을 추가하지 않고 **JPA 기본기인 JPQL 생성자 표현식**(`select new com.project.api.order.dto.…Response(…)`)으로 동등 효과를 낸다.
 
@@ -60,7 +62,7 @@ v4 "쿼리 1회"가 사다리의 끝이 아니다. **세 축**으로 보면 우�
 → v4는 축① 최강이지만 축②·③을 못 건드린다. v5는 축①을 한 칸(2회) 양보하고 축②·③을 가져간다.
 
 **경로별 권장 배선:**
-- **목록 + 페이징(대부분의 실무 조회):** `v3 @BatchSize`를 기본으로. fetch join은 1:N+페이징에서 메모리 페이징 경고·다중컬렉션 예외(R-Q4)로 막히므로, IN 배치가 부작용 없이 거의 모든 조회에 꽂힌다.
+- **목록 + 페이징(대부분의 실무 조회):** `v3 @BatchSize`를 기본으로. fetch join은 1:N+페이징에서 **메모리 페이징 경고(HHH000104)**로 막히므로, IN 배치가 부작용 없이 거의 모든 조회에 꽂힌다. *v4 막힘 근거는 **페이징 적용 v4 변종 실측**으로 뒷받침(미측정 시 "원리만" — N-2·#5). 비페이징 목록은 v4도 단일쿼리로 동작하므로 결론은 **페이징 목록**에 한정.*
 - **단건 상세(1:N 하나, 화면이 쓸 데이터 확정):** `v4 Fetch Join`. 쿼리 1회, 컬렉션 하나라 `distinct`로 카테시안 곱 통제.
 - **조회 전용 핫패스·대용량 응답:** `v5 DTO Projection`. 전송량·적재까지 깎아야 하는 경로에서만, 복잡도를 감수하고 쓴다.
 
@@ -68,33 +70,40 @@ v4 "쿼리 1회"가 사다리의 끝이 아니다. **세 축**으로 보면 우�
 
 ---
 
-## ★ 설계 리스크 R1 — 버전 격리 (핵심 검증 대상)
+## ★ R1 — 버전 격리 (design-review 확정)
 
-**문제:** `v2 EAGER`와 `v3 @BatchSize`는 본래 **엔티티/연관 전역 어노테이션**(`@ManyToOne(fetch=EAGER)`, `@BatchSize`)이다. 전역으로 박으면 **v1의 순수 N+1 baseline이 오염**된다(예: 연관에 `@BatchSize`를 달면 v1도 자동 배치되어 더 이상 1+N이 아니게 됨). 모든 버전이 코드에 공존해야 하는 규칙(`CLAUDE.md`)과 충돌. → 인덱스 시나리오에서 "v1이 무인덱스 baseline을 유지하는가"를 코드로 전수 확인했던 것과 같은 함정.
+**문제:** `v2 EAGER`(`@ManyToOne(fetch=EAGER)`)와 `v3 @BatchSize`는 본래 **엔티티/전역 설정**이라, 전역으로 박으면 **v1 순수 N+1 baseline이 오염**된다(연관에 batch를 달면 v1도 자동 배치 → 1+2N이 깨짐). → 인덱스 시나리오의 "v1 무인덱스 baseline 유지" 함정과 동형.
 
-**해소 옵션 (design-review에서 택1 또는 보완):**
-- **옵션 A — 쿼리 레벨로만 변주(권장 후보):** 엔티티는 LAZY·깨끗하게 고정. 차이는 **리포지토리 메서드**로만 발생.
-  - v1: 무fetch 조회 + 서비스 루프 접근 → N+1
-  - v2: `@EntityGraph(attributePaths=...)`로 강제 즉시로딩 → 컬렉션 fetch의 행 곱/`distinct` 필요/다중 컬렉션 `MultipleBagFetchException` 함정 시연 (= "EAGER의 대가"를 쿼리 레벨로 재현)
-  - v4: JPQL `join fetch`
-  - **단, v3 @BatchSize만 전역 속성 필요** → `spring.jpa.properties.hibernate.default_batch_fetch_size`를 **v3 측정 런에서만 토글**(인덱스 시나리오가 SQL 스크립트를 적용/미적용으로 토글한 것과 동형). v3는 "코드 엔드포인트 + 측정시 config 토글" 조합.
-- **옵션 B — 사다리 재정의:** v2/v3을 엔티티 전역 토글로 두되, **각 버전 측정은 단독 런으로 격리**하고 v1 baseline은 "@BatchSize 미적용 상태"임을 런타임 assert로 검증(`default_batch_fetch_size` unset 확인). (메모리 `dryrun-pin-runtime-assert` 패턴)
-- **옵션 C — EAGER 함정을 엔티티로 정직하게:** v2에서 실제 `fetch=EAGER`로 바꾸면 전역 오염 → 비권장.
+**확정 해소(혼합):**
+- **v4(`join fetch`)·v5(`select new`)는 쿼리 메서드 레벨** → 엔티티/전역을 안 건드려 **영구 공존, 격리 불필요**.
+- **v2(EAGER 매핑)·v3(batch 설정)은 전역 변수** → **해당 버전의 단독 측정 런에서만 토글**한다(인덱스 시나리오가 인덱스 SQL을 적용/미적용으로 토글한 것과 동형). 엔드포인트 v1~v5는 코드로 공존하되, v2/v3의 전역 거동은 *측정 시 토글되는 변수*다.
+- **v1 baseline 무오염은 런타임 assert로 검증** — v1 측정 직전 "기본 fetch=LAZY · `default_batch_fetch_size` unset"을 확인하고 불일치면 abort(메모리 `dryrun-pin-runtime-assert`).
 
-> **v4·v5는 R1 무관(오염 없음).** 둘 다 **리포지토리 쿼리 메서드 레벨**(v4=`join fetch`, v5=`select new …`)이라 엔티티/전역 속성을 안 건드린다. 전역 토글이 필요한 건 v3(@BatchSize)뿐 → "v3 측정 런에서만 토글 + 런타임 assert"가 격리의 전부다.
+> **v2 정체성(design-review B1):** v2는 `@EntityGraph`가 **아니다**. EntityGraph는 LEFT JOIN FETCH를 생성 → 단일 쿼리라 v4로 붕괴하고 "EAGER도 N+1" 교훈을 못 보인다. v2는 **정통 엔티티 EAGER**로, 파생쿼리에서 secondary SELECT N번을 그대로 드러내는 게 핵심.
 
-> 이 R1이 정해지기 전에는 Step 구현 세부를 확정하지 않는다. **design-review 1순위 안건.**
+## ★ R2 — 쿼리 수를 어떻게 세나 (design-review C-a 확정)
+- **2단계 측정 분리:** Hibernate `Statistics.getPrepareStatementCount()`는 **프로세스 전역 누적**이라 k6 동시부하 중엔 요청당 쿼리 수를 못 뽑는다(여러 요청 인터리브). 따라서:
+  - **쿼리 수**(1+2N → 1 등): **단일요청 격리 런(VU=1, 단발 요청)**에서 측정. 또는 요청 스레드 바인딩 `StatementInspector`로 per-request 카운트.
+  - **p95**: 별도 **부하 런**(아래 R3 부하 모델 준수)에서 측정.
+- 카운트 소스: Statistics(격리 런) 또는 `org.hibernate.SQL: DEBUG` 로그 라인 수. P6Spy 금지(`CLAUDE.md`).
+- **v5 추가 지표(축②·③):** 쿼리 수로는 v4↔v5 차이가 안 드러난다. **전송량**(응답 바이트, Statistics fetch row 수)과 **적재 비용**(영속성 컨텍스트 적재 엔티티 수 — v5는 0)을 함께 본다. 대리지표 노출 방법은 R-Q6.
 
-## 설계 리스크 R2 — 측정의 "쿼리 수"를 무엇으로 세나
-- 1차 지표는 **응답시간(k6 p95)**, 2차는 **발생 SQL 쿼리 수**.
-- 쿼리 수 카운트 방법(검증 대상): (a) Hibernate `Statistics`(`getPrepareStatementCount()`)를 액추에이터로 노출, 또는 (b) `org.hibernate.SQL: DEBUG` 로그 라인 수 집계. P6Spy는 금지(`CLAUDE.md`). → design-review에서 (a) 권장 여부 확인.
-- **v5 추가 지표(축②·③):** 쿼리 수만으로는 v4↔v5의 차이가 안 드러난다. v5의 가치 입증을 위해 **전송량**(응답 바이트 또는 Statistics의 `getEntityLoadCount()`/fetch row 수)과 **적재 비용**(영속성 컨텍스트 적재 엔티티 수 — v5는 0)을 함께 본다. → design-review에서 측정 가능한 대리지표 확정.
+## ★ R3 — 부하 모델: 버퍼 워밍 함정 (design-review C-b 확정)
+**위험:** 목록 엔드포인트를 **단일/소수 핫 `userId`**에 집중시키면, 첫 요청이 그 유저의 ~500주문·아이템을 InnoDB 버퍼풀에 적재 → 이후 요청은 디스크 I/O 0(완전 워밍). v1의 ~1,000회 round-trip이 전부 메모리에서 µs급 처리 → **v1 p95 ≈ v4 p95**(차이=round-trip 오버헤드 노이즈)로 1차 지표가 N+1을 못 가르고, "예측 가능성" 논거가 flat 결과의 사후합리화로 전락.
+
+**해소(측정 규칙):**
+- **userId를 전체 ~1,000명에 고르게 분산**(워킹셋 > 버퍼풀; orders 500K). k6에서 매 요청 랜덤 userId.
+- 구조적 차이(1+2N vs 1)는 **쿼리 수(R2 격리 런)가 데이터 무관하게** 보이므로 1차 근거로 두고 p95는 보조.
+- p95가 안 갈리면 "버퍼 워밍 탓"을 **명시적 가설로 기록**하고, 우승 근거는 쿼리·적재의 구조적 고정성으로 둔다(사후합리화 아님).
+- **전제 검증(#3):** 측정 전 `innodb_buffer_pool_size` < 워킹셋(order 500K+item 1.5M+product 1M)임을 확인 — 풀이 데이터셋을 다 담으면 분산해도 워밍 후 전량 캐시라 무효 → 그땐 쿼리수로만 가름.
+- **목록 vs 상세(#7):** 목록(N≈500)은 statement 수(≈1001 vs 1)가 디스크 I/O와 무관하게 지배 → 워밍돼도 p95가 갈릴 여지 큼. **상세(M≈3, ≈5 vs 1)는 워밍 시 노이즈 → 상세는 쿼리수로만 가른다.**
+- **부하점 설정(#4):** v1은 요청당 ~1001쿼리·커넥션 장기 점유라 같은 부하에서 v1만 먼저 Hikari `pending>0`. 모든 버전이 비포화인 부하점을 잡되 그 점에선 v4가 거의 idle이라 p95 분리가 줄 수 있음 — **apples-to-apples는 쿼리수(격리 런)로 확보**, p95는 보조.
 
 ---
 
 ## Important Rules
 - 먼저 `CLAUDE.md`를 읽을 것(엔티티·관계·API·로깅 규칙).
-- **엔티티(`Order`/`OrderItem`/`Product`)와 기존 관계를 수정하지 말 것** — R1 해소가 옵션 A로 확정될 경우. (옵션 B 확정 시 별도 명시)
+- **엔티티/관계를 영구 수정하지 말 것.** v2 EAGER·v3 batch는 *측정 시 토글되는 전역 변수*로 다루며(R1), 코드 baseline은 LAZY·batch unset로 유지하고 v1 측정 직전 런타임 assert로 검증.
 - Controller에서 엔티티 직접 반환 금지 → 반드시 DTO(`api/order/dto/`).
 - Controller → Service → Repository 호출 순서 필수.
 - 새 관계/엔티티 추가 금지(이 시나리오는 스키마 변경 0).
@@ -116,15 +125,20 @@ v4 "쿼리 1회"가 사다리의 끝이 아니다. **세 축**으로 보면 우�
 ### A-4. `OrderQueryController` — v1 엔드포인트
 - `GET /api/v1/users/{userId}/orders`, `GET /api/v1/orders/{orderId}`.
 
-## Step B: v2 (EAGER/EntityGraph) — R1 확정안 반영
-- (R1 옵션 A 가정) `@EntityGraph(attributePaths={"orderItems"})` 목록 메서드 + 상세는 `{"orderItems","orderItems.product"}`. 컬렉션 fetch 행 곱·`distinct` 필요·다중컬렉션 예외를 검증 시나리오에 명시.
+## Step B: v2 (정통 EAGER) — 목록에서 N+1 잔존, 상세는 흡수
+- **`@EntityGraph 아님`** (B1). `Order→orderItems`·`OrderItem→Product`를 **`fetch=EAGER`로 토글한 단독 측정 런**에서 측정. 측정 후 LAZY 원복, v1 무오염은 R1 런타임 assert.
+- **목록(`findByUserId`, 파생 JPQL):** 쿼리 실행 후 각 Order의 EAGER `orderItems`를 **secondary SELECT N회**로 채움 = **EAGER로도 N+1 잔존**. 단 각 컬렉션 SELECT에 EAGER `@ManyToOne product`(기본 style=JOIN)가 조인 흡수 → 대표상품은 별도 SELECT 아님(∴ ≈`1+N`, v1 `1+2N`과 **구조가 다름**).
+- **상세(`findById`=`em.find` by PK):** `find()`는 EAGER를 **즉시 조인/로딩으로 흡수 → N+1 미발생**(~2쿼리). **∴ v2의 N+1 시연은 목록 경로로 한정**(design-review #1, 표 각주 "find() by PK만 조인"과 정합).
+- **쿼리 수는 실측으로 확정** — a priori 공식 단정 금지(Hibernate 버전·기본 style 의존). SQL 로그로 표를 채운다.
+- 교훈: ① 즉시로딩은 N+1을 *없애지 않고 시점만* 옮긴다(쿼리 경로). ② **EAGER+`find()`는 흡수, EAGER+쿼리는 못 흡수.** ③ LAZY `@ManyToOne`=별도 SELECT vs EAGER=JOIN.
 
-## Step C: v3 (@BatchSize / batch fetch) — R1 확정안 반영
-- (R1 옵션 A 가정) `default_batch_fetch_size` 토글로 IN절 배치. 측정 런 전후 값 핀 + 런타임 assert.
+## Step C: v3 (@BatchSize / batch fetch) — R1 토글 격리
+- `default_batch_fetch_size`(또는 연관 `@BatchSize`) 토글로 IN절 배치. 단독 측정 런 전후 값 핀 + 런타임 assert(v1 baseline=unset 확인).
 
 ## Step D: v4 (Fetch Join) — 단건 상세 최적
-- `OrderRepository`에 `@Query("select distinct o from Order o join fetch o.orderItems oi join fetch oi.product where o.userId = :userId")` 목록, 상세도 동형. 단일 쿼리 착지.
-- **함정 명시:** 1:N fetch join + 페이징 = 메모리 페이징 경고, 1:N 둘 동시 fetch = `MultipleBagFetchException`(R-Q4). → "단건 상세엔 최적, 목록+페이징엔 부적합"을 결론에서 v3와 대비.
+- `OrderRepository`에 `@Query("select distinct o from Order o join fetch o.orderItems oi join fetch oi.product where o.id = :id")` 상세, 목록도 동형(단 페이징 미적용). 컬렉션 1 + to-one 1이라 단일 쿼리·`distinct`로 카테시안 곱 통제.
+- **함정(한정):** 1:N fetch join + **실제 페이징(`Pageable`) = 메모리 페이징 경고(HHH000104)**. *컬렉션이 하나뿐이라 `MultipleBagFetchException`은 이 스키마에서 재현 불가 — 이론 노트(design-review B2).*
+- **N-2:** 경고는 `Pageable`을 줄 때만 발생. 비페이징 v4는 경고 없이 대량 로딩일 뿐 → 결론에선 **페이징 적용 v4 변종을 따로 측정**하거나 "원리로만 설명"임을 명시.
 
 ## Step E: v5 (DTO Projection) — 조회 전용·대용량
 - **QueryDSL 미사용** — JPQL 생성자 표현식으로 필요 칸만 투영, 엔티티 영속성 적재 0.
@@ -142,8 +156,8 @@ v4 "쿼리 1회"가 사다리의 끝이 아니다. **세 축**으로 보면 우�
 ---
 
 ## Work Order
-순차 진행, **각 Step 후 일시정지 → 사람 검증 → `/commit`**. R1·R2가 design-review에서 확정된 뒤 Step B~ 세부를 갱신한다.
-1. **R1·R2 확정** (design-review) → 이 문서에서 `-draft` 제거
+순차 진행, **각 Step 후 일시정지 → 사람 검증 → `/commit`**. R1·R2·R3는 design-review로 확정됨(위 반영).
+1. **확정본 사람 1회 확인 → `-draft` 제거**
 2. Step A (v1 baseline + DTO/조회 표면) → 검증 → commit
 3. Step B (v2) → 검증 → commit
 4. Step C (v3) → 검증 → commit
@@ -159,10 +173,17 @@ v4 "쿼리 1회"가 사다리의 끝이 아니다. **세 축**으로 보면 우�
 
 ---
 
-## Open Questions (design-review 안건)
-1. **R1 버전 격리** — 옵션 A/B/C 중 택1. v1 baseline 무오염을 어떻게 보장·검증할 것인가(런타임 assert?).
-2. **R2 쿼리 수 카운트** — Hibernate `Statistics` 액추에이터 노출 vs SQL 로그 집계.
-3. **목록 N 크기** — ~~열림~~ **[audit-doc로 해소]** DB 실측 평균 ~500주문/유저(max 584)라 **추가 헤비유저 시드 불필요** — N≈500 컬렉션 N+1이 기본 재현됨. 단 목록에 페이징을 적용하면 N이 page size로 제한되어 N+1 폭이 줄어드므로, **측정은 비페이징 또는 충분히 큰 page size로** 수행한다.
-4. **컬렉션+to-one 동시 fetch join**의 `MultipleBagFetchException`/카테시안 — v4에서 한 쿼리로 갈지, 목록은 `@BatchSize`(v3 기법)와 fetch join을 섞을지(2단계 로딩). (= R-Q4)
-5. **v5 목록 파생값 투영** — 목록 요약의 `itemCount`/`firstProductName`은 집계/상관 서브쿼리가 필요하다. JPQL 생성자 표현식으로 (a) `count`/`min` 집계를 헤더 쿼리에 포함할지, (b) 목록 v5는 헤더만 투영하고 요약은 v3식 2단계 배치로 채울지 확정. (= R-Q5)
-6. **v5 전송량·적재 대리지표** — 축②·③을 로컬에서 측정 가능한 값(응답 바이트, Statistics load count, 적재 엔티티 수)으로 어떻게 노출·집계할지(R2 연계).
+## 해소된 안건 / 남은 Open Questions
+
+**검증으로 해소(audit-doc·design-review):**
+1. ~~R1 버전 격리~~ **확정** — v4/v5 쿼리레벨 공존, v2(EAGER)/v3(batch)는 단독 측정 런 토글 + v1 baseline 런타임 assert(위 R1).
+2. ~~R2 쿼리 카운트~~ **확정** — 쿼리 수=격리 런(VU=1), p95=부하 런 2단계 분리(위 R2).
+3. ~~목록 N 크기~~ **해소(audit)** — 실측 ~500/유저로 추가 시드 불필요. 페이징 시 N 축소 → 비페이징/큰 size.
+4. ~~R-Q4 다중 컬렉션 예외~~ **폐기(B2)** — 컬렉션 하나뿐이라 `MultipleBagFetchException` 재현 불가. v4 함정은 "1:N+페이징"만 유효.
+5. ~~v1 목록 baseline~~ **정정(B3)** — `1+2N`(컬렉션 N + 대표상품 N), v3=`1+2⌈N/b⌉`.
+6. ~~v2 정체성~~ **확정(B1)** — `@EntityGraph` 아님, 정통 엔티티 EAGER.
+
+**남은 Open Questions (구현 시 확정):**
+- **R-Q5 v5 목록 파생값 투영** — 목록 요약 `itemCount`/`firstProductName`을 JPQL 생성자 표현식으로 (a) `count`/`min` 집계를 헤더 쿼리에 포함할지, (b) 헤더만 투영하고 요약은 v3식 2단계 배치로 채울지.
+- **R-Q6 v5 전송량·적재 대리지표** — 축②·③을 로컬 측정값(응답 바이트, Statistics load count, 적재 엔티티 수=0)으로 노출·집계하는 방법(R2 연계).
+- **C-c 전송량 공정성** — v5 목록을 측정에 쓰면 필드 집합을 v1~v4와 동일하게 맞추거나(아니면 적은 칸이라 작은 게 당연), 전송량 비교는 동일 DTO인 **상세 경로로 한정**.
