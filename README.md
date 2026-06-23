@@ -80,6 +80,7 @@ flowchart LR
 
 > ① 인덱스·③ 랭킹은 100만/150만 규모에서도 재측정 완료 — 대용량 거동은 [`docs/reports/phase3-6-scale-up.md`](docs/reports/phase3-6-scale-up.md)(Phase 3-6).
 > ② N+1은 스케일업된 100만/150만 토대 위에서 측정 완료 — 목록·상세 두 경로의 N+1을 v1~v5로 해소하고, 단일 우승자 대신 경로별로 v3/v4/v5를 배선했다(Phase 3-7 → [`docs/reports/phase3-7-n-plus-one.md`](docs/reports/phase3-7-n-plus-one.md)).
+> ⭐ **4개 시나리오 종합** — 위 4개를 관통하는 판단·측정 규율(단일 우승자 거부 · 1차 증거=구조량 · trade-off 정직 노출)은 [`docs/reports/phase3-synthesis.md`](docs/reports/phase3-synthesis.md)에 한 문서로 묶었다.
 
 ---
 
@@ -88,8 +89,8 @@ flowchart LR
 > 이 프로젝트의 차별점은 "가장 고급 기법을 골랐다"가 아니라 **판단과 측정 규율**이다. ④ 동시성 시나리오가 그 결을 가장 짙게 보여준다 — 아래는 회고 리포트로 가는 티저다.
 
 - **락 전략 5버전 사다리(v1~v5)를 통제변수 핀으로 격리 측정.** 무락은 한정수량 100짜리 쿠폰을 **999개 발급**(10배 초과)했고, v2~v5는 서로 다른 메커니즘으로 초과를 0으로 닫았다. "초과를 막았나"라는 이진 사실만 비교하고, throughput은 버전 간 비교하지 않는다(경합 전략이 같이 움직이는 교란).
-- **클라이맥스 — fencing 스톨 데모.** 만료-중간탈취를 주입하니 해제는 거부됐는데도(오해제 차단 ✓) `actual=2 > total=1`. **"안전한 release ≠ 상호배제"** — fencing token 없이는 어느 분산 락도 못 막는 공백을 실측으로 보였다.
-- **DB 행 락(v3) 채택 — 더 빨라서가 아니라 더 안전해서.** 락↔데이터가 한 트랜잭션이라 fencing 공백이 구조적으로 없다. "왜 분산 락(트렌드)을 안 썼나"의 답은 트렌드 무지가 아니라 **워크로드 적합성 판단** — 사다리를 커스텀 분산 락까지 끝까지 구현해 보고 내린 기각이다.
+- **fencing 스톨 데모.** 만료-중간탈취를 주입하니 해제는 거부됐는데도(오해제 차단 ✓) `actual=2 > total=1`. **"안전한 release ≠ 상호배제"** — fencing token 없이는 어느 분산 락도 못 막는 공백을 실측으로 보였다.
+- **DB 행 락(v3) 채택 — 속도가 아니라 구조적 안전이 근거.** 락↔데이터가 한 트랜잭션이라 fencing 공백이 구조적으로 없다. 분산 락은 커스텀 구현까지 만들어 비교한 뒤, 이 워크로드(임계 구간이 곧 DB 쓰기)엔 맞지 않아 기각했다.
 - **측정을 함부로 믿지 않는 규율.** 측정 함정을 클래스 A(환경 의존)/B(해석 오독)로 분류해, 자동 판정이 못 거르는 거짓 헤드라인을 닫았다.
 
 > 📖 **회고 리포트** → [`docs/reports/phase3-3-concurrency-lock.md`](docs/reports/phase3-3-concurrency-lock.md) — 판단 서사 · 3축 분석(정합 범위 / 경합 흡수 / 갱신 정책) · 방법론 메타회고. 읽는 데 약 15분.
@@ -153,7 +154,7 @@ k6 run test/load/coupon-test.js         # ④ 동시성 (→ docs/reports/ 회�
 | 경로 | 내용 |
 |------|------|
 | [`results/`](results/) | 시나리오별 측정 결과 (EXPLAIN · k6 JSON · 정합성). `environment.md`에 측정 환경 |
-| [`docs/reports/`](docs/reports/) | 시나리오 회고 리포트 (phase3-3 동시성 락 · phase3-4 비동기 발급 · phase3-6 스케일업 · phase3-7 N+1) |
+| [`docs/reports/`](docs/reports/) | 시나리오 회고 리포트 (phase3-3 동시성 락 · phase3-4 비동기 발급 · phase3-6 스케일업 · phase3-7 N+1) + **4개 시나리오 종합 리포트**(phase3-synthesis) |
 | [`docs/`](docs/) | 트러블슈팅 노트, PR 컨벤션 |
 | [`specs/`](specs/) | phase별 실행 스펙 |
 | [`scripts/`](scripts/) | 시드 생성 · 인덱스 DDL · 측정 자동화 |

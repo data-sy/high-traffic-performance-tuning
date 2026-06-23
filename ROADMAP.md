@@ -92,22 +92,19 @@ flowchart LR
 - [ ] (선택) MSA 분리 — 측정보다 아키텍처 학습용, 후순위
 
 **문서**
-- [ ] 4개 시나리오 측정 결과 종합 리포트 (포트폴리오용) · **Now 진행 중**
+- [x] 4개 시나리오 측정 결과 종합 리포트 (포트폴리오용) — 완료
 
 ---
 
 ## Now — 진행 중
 
-**4개 시나리오 종합 리포트** (포트폴리오용, 브랜치 `docs/phase3-synthesis-report`)
-- 인덱스·N+1·랭킹·동시성 결과를 한 문서로 종합(`results/`·회고 기반). 횡단 주제: 단일 우승자 거부·측정 규율·trade-off.
-- 작업 프롬프트: `prompts/synthesis-report-prompt.md` (페르소나: 성능 엔지니어 겸 테크니컬 라이터)
-- 산출물: `docs/reports/phase3-synthesis.md`(가제). 코드 0의 문서 작업이라 독립 PR로 머지.
+- 진행 중인 작업 없음. 다음 후보는 아래 Next 참조.
 
 ---
 
 ## Next — 다음 (착수 예정)
 
-- 종합 리포트는 Now로 승격(위). 다음 후보: **신규 단일 노드 주제 A~E**(마스터 체크리스트 Stage 2~3, 권장순 A→B→C→D→E). 우선순위가 오르면 여기로 승격.
+- 다음 후보: **신규 단일 노드 주제 A~E**(마스터 체크리스트 Stage 2~3, 권장순 A→B→C→D→E). 우선순위가 오르면 여기로 승격.
 
 ---
 
@@ -132,6 +129,10 @@ flowchart LR
 
 날짜·PR 번호는 git history 기준. 상세 변경 내역은 각 PR 또는 `specs/` 해당 phase 스펙 참조.
 
+- **[종합 / 포트폴리오] 4개 시나리오 종합 리포트 — 판단·측정 규율 횡단** — 2026-06-24 (PR [#17](https://github.com/data-sy/high-traffic-performance-tuning/pull/17), `docs/phase3-synthesis-report`)
+  - 인덱스·N+1·랭킹·동시성 4개를 한 문서로 종합(`docs/reports/phase3-synthesis.md`). 횡단 주제: 단일 우승자 거부(워크로드별 배선)·측정 규율(1차 증거=구조량)·trade-off 정직 노출
+  - 각 헤드라인: 인덱스 25.2×·랭킹 ≈5,700×·N+1 목록 1150→1·동시성 999→0. 1차 증거를 EXPLAIN·쿼리 수·행 수(인프라 불변)에 두고 레이턴시는 보조이거나 비교 금지
+  - 회고 4편·README §5 톤 순화(과장·의인화·방어적 표현 평서화) 동반
 - **[Phase 3-7 / 시나리오 ② N+1] 주문 조회 N+1 — v1~v5 사다리·경로별 배선** — 2026-06-23 (PR [#16](https://github.com/data-sy/high-traffic-performance-tuning/pull/16), `phase/3-7-n-plus-one`)
   - 주문 **목록**(컬렉션 N+1)·**상세**(to-one N+1) 두 경로를 v1 LAZY→v2 EAGER→v3 @BatchSize→v4 Fetch Join→v5 DTO Projection으로 해소. **스키마 변경 0·신규 의존성 0**(v5는 QueryDSL 아닌 JPQL 생성자 표현식)
   - **쿼리 수(1차 지표, 격리 VU=1)**: 목록 v1 1150→v4 1·v5 2·v3 27, 상세 v1 7→v2/v4 1. v2 EAGER는 목록 N+1 잔존(1+N, 대표상품 JOIN 흡수)·상세는 `find()`가 흡수(1)
