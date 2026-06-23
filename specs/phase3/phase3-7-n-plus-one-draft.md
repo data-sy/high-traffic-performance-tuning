@@ -5,7 +5,7 @@
 ## Context (현재 상태)
 - Phase 3-1~3-6 완료. 데이터 스케일업됨(DB 실측): `product` 1,000,000 / `order_item` 1,500,000 / `orders` ~500,000 / `users` ~1,000 (**사용자당 평균 ~500주문, max 584**, 주문당 평균 ~3 아이템).
 - `ddl-auto: validate` 활성. **변경 금지.**
-- Docker 컨테이너(MySQL, Redis) 실행 중(`docker compose up -d`).
+- Docker 컨테이너(MySQL, Redis) 실행 중(`docker compose -f docker/docker-compose.yml up -d`).
 - 현재 주문 도메인 표면: `OrderService.createOrder()`만 존재. **조회 컨트롤러·조회 서비스·조회용 DTO 없음** → 이번 phase에서 신설.
 - 기존 연관관계(확인됨): `Order → OrderItem @OneToMany(mappedBy="order", cascade=ALL)`, `OrderItem → Order @ManyToOne(LAZY)`, `OrderItem → Product @ManyToOne(LAZY)`.
 
@@ -42,6 +42,8 @@
 | **v5** | DTO Projection (JPQL `new` 생성자 표현식, **필요 칸만**) | `2` (헤더+라인 분리, **데이터 무관 고정**) | 쿼리 1회를 양보하고 **전송량·적재비용**을 깎음 — "쿼리 수가 전부가 아니다". 조회 전용·대용량 경로 |
 
 > **v5는 QueryDSL을 쓰지 않는다.** 학습자료(`nplusone-ladder.html`)는 QueryDSL `Projections`를 쓰지만, 본 프로젝트는 신규 의존성을 추가하지 않고 **JPA 기본기인 JPQL 생성자 표현식**(`select new com.project.api.order.dto.…Response(…)`)으로 동등 효과를 낸다.
+
+> **컨벤션 근거:** v5 도입과 "경로별 배선"(최종 해법 = 최고 번호 아님, 경로의존)은 `CLAUDE.md` API Structure의 **확장 규정(v1~vN 허용)**에 따른다. CLAUDE.md를 이미 갱신함(동시성 v5·N+1 v5 명시, 채택은 워크로드 적합성 기준).
 
 ---
 
@@ -96,7 +98,7 @@ v4 "쿼리 1회"가 사다리의 끝이 아니다. **세 축**으로 보면 우�
 - Controller에서 엔티티 직접 반환 금지 → 반드시 DTO(`api/order/dto/`).
 - Controller → Service → Repository 호출 순서 필수.
 - 새 관계/엔티티 추가 금지(이 시나리오는 스키마 변경 0).
-- **신규 의존성 추가 금지** — v5 DTO Projection은 QueryDSL이 아니라 **JPQL 생성자 표현식**(`select new …Response(…)`)으로 구현한다(`build.gradle`엔 `spring-boot-starter-data-jpa`만 존재).
+- **신규 의존성 추가 금지** — v5 DTO Projection은 QueryDSL이 아니라 **JPQL 생성자 표현식**(`select new …Response(…)`)으로 구현한다(`build.gradle`에 **QueryDSL 의존성 없음** — JPA 기본기로 구현).
 - MySQL 접근은 셸 함수 `run_mysql() { docker exec -i docker-mysql-1 mysql -uroot -proot flashdeal "$@"; }`. `mysql -h127.0.0.1` 직접 금지.
 - 모든 `.sh`는 실행권한(`chmod +x`).
 
