@@ -123,6 +123,9 @@ flowchart LR
   - D. 회복탄력성 — Resilience4j (타임아웃·서킷·벌크헤드)
   - E. 대량 처리 — JDBC batch
   - F. 분산 토폴로지 — 읽기/쓰기 분리, Kafka + Transactional Outbox (capstone)
+- **[기능 폭 / JD 대응] 결제 외부 API 연동 (PG 연동)** — 성능 Stage가 아닌 **기능 경험** 백로그(채용공고에 "결제 연동 경험" 종종 등장). 외부 결제대행사(PG) API 연동 = 결제 승인/취소, **멱등성(idempotency key)**, **웹훅 콜백** 수신·검증, 주문↔결제 상태 정합, 외부 장애 대비(타임아웃·재시도·서킷 → 후보 **D 회복탄력성**과 연결), 보상 트랜잭션
+  - 도메인 연계: `Order → Payment @OneToOne` 신규(N+1 후보 #7과도 맞물림). 모의 PG(샌드박스/스텁)로 외부 연동 재현
+  - 스펙 미작성 — 착수 시 `specs/`에 별도 phase로 작성
 - (아이디어 추가 시 여기로)
 
 ---
