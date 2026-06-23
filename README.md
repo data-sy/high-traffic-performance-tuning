@@ -73,13 +73,13 @@ flowchart LR
 | # | 시나리오 | 문제 | 접근 (`v1`→`v4`) | 상태 | 산출물 |
 |---|----------|------|------------------|------|--------|
 | ① | **인덱스 최적화** | 상품 목록 조회 풀스캔 | no index → category → created_at → **복합 인덱스** (+v5 역순 비교) | ✅ 완료 | [`results/phase3-1-index-optimization/`](results/phase3-1-index-optimization/) (EXPLAIN + k6) |
-| ② | **N+1 해결** | 주문 상세 N+1 쿼리 | LAZY → EAGER → `@BatchSize` → **Fetch Join** | ⏳ 미착수 (엔티티만 준비, [ROADMAP](ROADMAP.md)) | — |
+| ② | **N+1 해결** | 주문 목록·상세 N+1 쿼리 | LAZY → EAGER → `@BatchSize` → Fetch Join → **DTO Projection** | ✅ 완료 · **경로별 배선**(목록 v3 / 상세 v4 / 핫패스 v5) | **회고 리포트** → [`docs/reports/phase3-7-n-plus-one.md`](docs/reports/phase3-7-n-plus-one.md) |
 | ③ | **실시간 랭킹** | DB `ORDER BY` 정렬 비용 | DB ORDER BY → DB index → Redis String → **Redis Sorted Set** | ✅ 완료 | [`results/phase3-2-ranking-optimization/`](results/phase3-2-ranking-optimization/) |
 | ④ | **동시성 제어** | 쿠폰 한정수량 초과발급 | no lock → synchronized → `SELECT FOR UPDATE` → Redis 분산 락 (+v5 커스텀 락) | ✅ 완료 · **DB 행 락(v3) 채택** | **회고 리포트** → [`docs/reports/phase3-3-concurrency-lock.md`](docs/reports/phase3-3-concurrency-lock.md) |
 | — | **모니터링 인프라** | before/after 관측 | Actuator + Prometheus 메트릭, k6 remote write, Grafana | ✅ 완료 | [`docker/docker-compose.yml`](docker/docker-compose.yml) |
 
 > ① 인덱스·③ 랭킹은 100만/150만 규모에서도 재측정 완료 — 대용량 거동은 [`docs/reports/phase3-6-scale-up.md`](docs/reports/phase3-6-scale-up.md)(Phase 3-6).
-> ② N+1은 의도적으로 미착수 상태다 — 데이터 스케일업과 묶어 최종 규모에서 한 번에 측정할 계획([ROADMAP](ROADMAP.md)). 숨기지 않고 로드맵으로 둔다.
+> ② N+1은 스케일업된 100만/150만 토대 위에서 측정 완료 — 목록·상세 두 경로의 N+1을 v1~v5로 해소하고, 단일 우승자 대신 경로별로 v3/v4/v5를 배선했다(Phase 3-7 → [`docs/reports/phase3-7-n-plus-one.md`](docs/reports/phase3-7-n-plus-one.md)).
 
 ---
 
@@ -153,7 +153,7 @@ k6 run test/load/coupon-test.js         # ④ 동시성 (→ docs/reports/ 회�
 | 경로 | 내용 |
 |------|------|
 | [`results/`](results/) | 시나리오별 측정 결과 (EXPLAIN · k6 JSON · 정합성). `environment.md`에 측정 환경 |
-| [`docs/reports/`](docs/reports/) | 시나리오 회고 리포트 (phase3-3 동시성 락 · phase3-4 비동기 발급 · phase3-6 스케일업) |
+| [`docs/reports/`](docs/reports/) | 시나리오 회고 리포트 (phase3-3 동시성 락 · phase3-4 비동기 발급 · phase3-6 스케일업 · phase3-7 N+1) |
 | [`docs/`](docs/) | 트러블슈팅 노트, PR 컨벤션 |
 | [`specs/`](specs/) | phase별 실행 스펙 |
 | [`scripts/`](scripts/) | 시드 생성 · 인덱스 DDL · 측정 자동화 |

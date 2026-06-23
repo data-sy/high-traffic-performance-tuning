@@ -43,10 +43,13 @@
 
 ### Database
 - **Connection Pool**: HikariCP (default settings)
-- **Initial Data Volume**: 
-  - `product`: 100,000 rows
-  - `order_item`: 150,000 rows
-  - `user`, `order`, `coupon`: Varies by phase
+- **Data Volume** (post Phase 3-6 scale-up; verify against live DB via `select count(*)` — these numbers drift when re-scaled):
+  - `product`: 1,000,000 rows
+  - `order_item`: 1,500,000 rows
+  - `orders`: ~500,000 rows (avg ~500/user, max 584)
+  - `users`: ~1,000 rows
+  - `coupon` / `coupon_issue`: varies by phase
+  - (pre-3-6 baseline was `product` 100,000 / `order_item` 150,000)
 
 ### Application Runtime
 - **Spring Boot Mode**: `./gradlew bootRun`
