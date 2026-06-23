@@ -1,5 +1,7 @@
 package com.project.domain.order;
 
+import com.project.api.order.dto.OrderDetailResponse;
+import com.project.api.order.dto.OrderItemResponse;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -35,4 +37,29 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             + "join fetch oi.product "
             + "where o.userId = :userId")
     List<Order> findByUserIdFetch(@Param("userId") Long userId);
+
+    // ── v5: DTO Projection (JPQL 생성자 표현식, QueryDSL 미사용) ───────────────
+    // 필요 칸만 투영 → 엔티티 영속성 적재 0. 상세 = 헤더 1 + 라인 1 = 2회 고정.
+
+    /** v5 상세 헤더 — 주문 헤더만 투영(아이템 미적재). */
+    @Query("select new com.project.api.order.dto.OrderDetailResponse(o.id, o.status, o.total, o.createdAt) "
+            + "from Order o where o.id = :orderId")
+    Optional<OrderDetailResponse> findDetailHeader(@Param("orderId") Long orderId);
+
+    /** v5 상세 라인 — 라인을 product 조인으로 한 번에 투영(엔티티 미적재). */
+    @Query("select new com.project.api.order.dto.OrderItemResponse(oi.product.id, oi.product.name, oi.price, oi.quantity) "
+            + "from OrderItem oi where oi.order.id = :orderId order by oi.id")
+    List<OrderItemResponse> findDetailLines(@Param("orderId") Long orderId);
+
+    /** v5 목록 헤더 — 주문 헤더만 투영(요약값은 별도 라인 쿼리로). */
+    @Query("select o.id, o.status, o.total, o.createdAt from Order o where o.userId = :userId order by o.id")
+    List<Object[]> findListHeaders(@Param("userId") Long userId);
+
+    /**
+     * v5 목록 요약 — 주어진 주문들의 (orderId, itemId, productName)을 product 조인으로 한 번에 투영.
+     * 서비스에서 orderId로 묶어 itemCount = 그룹 크기, firstProductName = itemId 오름차순 첫 항목으로 집계.
+     */
+    @Query("select oi.order.id, oi.id, oi.product.name "
+            + "from OrderItem oi where oi.order.id in :orderIds order by oi.order.id, oi.id")
+    List<Object[]> findListLineSummaries(@Param("orderIds") List<Long> orderIds);
 }
