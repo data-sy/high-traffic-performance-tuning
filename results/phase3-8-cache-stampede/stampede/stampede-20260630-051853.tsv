@@ -1,0 +1,6 @@
+version	recompute	blocked	note
+v1	50	0	baseline(매 요청 재계산)
+v2	50	0	herd 노출(락 없음)
+v3	1	49	single-flight: 재계산≈1·블록≈C-1
+v4	1	0	논리만료+비동기갱신: 재계산≈1·블록≈0(물리 보존)
+v5	50	0	null+jitter(스탬피드 직교 — herd 안 닫음)

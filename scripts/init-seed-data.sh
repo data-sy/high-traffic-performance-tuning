@@ -328,6 +328,19 @@ INSERT INTO coupon (name, total_qty, issued, created_at) VALUES
 SQL
 
 echo ""
+echo "[+] Phase 3-8 AD-1: 복합 인덱스 idx_product_category_created 멱등 보장 (리셋 시 재드리프트 방지)"
+# ddl-auto=validate 라 앱이 인덱스를 안 만들고 시드에도 영구 DDL 이 없어, 측정 인덱스가 토글된 뒤 사라진다.
+# 정본 DDL 은 scripts/ensure-product-index.sh — 여기선 reset 경로에서도 동일 상태가 되도록 멱등 inline 보장.
+IDX_PRESENT=$(mysql_exec -N -e "SHOW INDEX FROM product WHERE Key_name='idx_product_category_created'" | grep -c . || true)
+if [ "${IDX_PRESENT}" -gt 0 ]; then
+    echo "    이미 존재 — skip"
+else
+    echo "    부재 → CREATE INDEX idx_product_category_created ON product(category, created_at DESC)"
+    mysql_exec -e "CREATE INDEX idx_product_category_created ON product(category, created_at DESC);"
+    mysql_exec -e "ANALYZE TABLE product;" >/dev/null
+fi
+
+echo ""
 echo "=== Verification ==="
 mysql_exec -e "
 SELECT 'users' AS tbl, COUNT(*) AS cnt FROM users
