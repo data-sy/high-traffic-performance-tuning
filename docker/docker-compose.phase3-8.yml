@@ -1,0 +1,21 @@
+# Phase 3-8 캐시 측정 — 전용 격리 Redis(6380)만 띄우는 standalone compose.
+#
+# 격리 정책(스펙 Context line 19-21·AD-2):
+#   - 전용 = 앱(측정 스택 JVM, profile=phase3-8) + Redis 6380.  이 phase는 스키마 변경 0이고 캐시는
+#     Redis 에만 사니, MySQL 은 본체 docker-mysql-1(localhost:3306)을 읽기전용 공유 재사용한다.
+#   - 전용 MySQL 은 **띄우지 않는다** — 띄우면 컨테이너명·데이터 출처가 갈려 측정이 무효화된다.
+#   - 따라서 본 파일은 redis 단일 서비스만 정의한다(포트 6380). 데이터는 휘발 — 캐시는 측정마다 reset.
+#
+# 기동:
+#   docker compose -p phase3-8-cache -f docker/docker-compose.phase3-8.yml up -d
+#     → 컨테이너 phase3-8-cache-redis-1, 네트워크 phase3-8-cache_default (본체 docker_* 와 불충돌)
+#   본체 Redis(6379)와 호스트 포트(6380)·프로젝트·네트워크 전부 분리.
+#
+# 앱은 SPRING_PROFILES_ACTIVE=phase3-8 로 기동 → application-phase3-8.yml 이 redis.port=6380 override,
+#   datasource 는 base application.yml 의 본체 3306 그대로 상속. CachePinsBootAssert 가 6380·3306 대조.
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: phase3-8-cache-redis-1
+    ports:
+      - "6380:6379"

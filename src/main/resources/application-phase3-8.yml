@@ -1,0 +1,33 @@
+# Phase 3-8 캐시 측정 전용 프로파일.
+#
+# 활성화: SPRING_PROFILES_ACTIVE=phase3-8 (또는 -Dspring.profiles.active=phase3-8)
+#
+# 이 프로파일에서만:
+#   - spring.data.redis.port=6380  → 측정 스택 전체(단일 redisConnectionFactory)가 전용 Redis 6380에 묶인다.
+#     (코드 확인: RedisConfig 의 연결 팩토리는 하나뿐 — 캐시·락·랭킹·큐가 공유. 빈별 포트 분리 불가 = 인스턴스 격리.)
+#   - 캐시 빈/핀/부팅assert/ops 컨트롤러(@Profile("phase3-8"))가 로드된다.
+#   - datasource 는 base application.yml 의 본체 3306 그대로 상속(여기서 override 안 함, AD-2) — 전용 MySQL 미신설.
+#
+# base application.yml 의 다른 통제 핀(hikari pool=10, tomcat threads max=200)은 그대로 상속한다
+#   — DR-POOL-1(pool=10) · DR-TOMCAT-1(C < threads.max) cross-assert 의 전제. 여기서 바꾸지 않는다.
+spring:
+  datasource:
+    # AD-2 유지: 동일 본체 MySQL 3306/flashdeal (전용 MySQL 미신설·DB 불변). url 만 charset 파라미터 추가.
+    # 환경 잠복 버그 교정: 서버 character_set_client/connection/results=latin1 인데 데이터는 utf8mb4 라,
+    # charset 미지정 JDBC 커넥션은 Korean 카테고리 필터가 0행 매칭한다(앱 쿼리만 — raw mysql 클라이언트는 정상).
+    # 이전 phase 의 k6 는 status==200 만 검사해 빈 결과를 못 잡았다(잠복). 캐시 측정은 content 가 필수라 여기서 교정.
+    # 측정 스택 한정 override — base application.yml(본체)·prior baseline 불변. 부팅 assert 는 ":3306/" 포함이라 통과.
+    url: jdbc:mysql://localhost:3306/flashdeal?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useUnicode=true&connectionCollation=utf8mb4_0900_ai_ci
+    hikari:
+      # 환경 잠복 버그: 1M 데이터가 latin1/cp1252 세션 클라이언트로 적재돼 product.category 가 *이중 인코딩*
+      # (utf8(전자기기) 바이트를 cp1252 로 해석→utf8 재인코딩)으로 저장돼 있다. 실측: latin1 세션 COUNT=200000,
+      # utf8mb4 세션 COUNT=0. 따라서 앱은 (a) utf8 바이트를 보내고(characterEncoding=UTF-8) (b) 세션은 latin1 로
+      # 둬(SET NAMES latin1) 서버가 그 바이트를 cp1252 로 해석→저장 이중인코딩과 매칭하게 한다. 결과 디코딩도
+      # 역경로로 전자기기 로 복원된다. (정공법은 컬럼 데이터 재인코딩 마이그레이션이나 공유 1M 데이터셋 변경은
+      # 본 phase 범위 밖 — 측정 스택 한정 세션 charset 으로 우회·최종 리포트에 잠복버그로 기록.)
+      # maximumPoolSize(10)·connection-timeout 은 base application.yml 상속(병합) — 부팅 assert pool=10 유지.
+      connection-init-sql: "SET NAMES latin1"
+  data:
+    redis:
+      host: localhost
+      port: 6380

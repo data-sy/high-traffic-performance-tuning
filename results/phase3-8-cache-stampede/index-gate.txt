@@ -1,0 +1,10 @@
+[ensure-product-index] target container=docker-mysql-1, index=idx_product_category_created
+[ensure-product-index] 이미 존재 (rows=2) — skip CREATE
+[ensure-product-index] SHOW INDEX (확인):
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+product	1	idx_product_category_created	1	category	A	4	NULL	NULL		BTREE			YES	NULL
+product	1	idx_product_category_created	2	created_at	D	3952	NULL	NULL	YES	BTREE			YES	NULL
+[ensure-product-index] EXPLAIN (측정 전 게이트 증거 — type=ref·no filesort 기대):
+id	select_type	table	partitions	type	possible_keys	key	key_len	ref	rows	filtered	Extra
+1	SIMPLE	product	NULL	ref	idx_product_category_created	idx_product_category_created	1022	const	399796	100.00	NULL
+[ensure-product-index] DONE
