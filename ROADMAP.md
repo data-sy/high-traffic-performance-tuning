@@ -98,7 +98,11 @@ flowchart LR
 
 ## Now — 진행 중
 
-- 진행 중인 작업 없음. 다음 후보는 아래 Next 참조.
+- **Phase 3-9 — 직렬 임계 구간 in-lock 왕복 사다리 (R0~R4)** — 착수. 3-3(동시성·v3 채택)의 지연 후속: v3가 남긴 in-lock DB 왕복을 한 칸씩 줄이고(R0=4→R3=3→R4=2) 그 단축이 throughput으로 번역되는지 *반증 가능하게* 측정(채택 결정 아님).
+  - **실행 정본 = 스펙 work order**: `specs/phase3/phase3-9-critical-section-occupancy.md` §실행 개시(Step 0~3). 비준 RATIFIED(6R)·사람 게이트 통과·ε_hi 파일럿 동결(21.9%<0.5) 완료.
+  - **콜드 세션에서 실행** — 이 대화 맥락 반입 금지(맥락 과투입=팬텀 버전 위험). R0~R4 빌드/측정은 빈 세션이 맡는다.
+  - **기판(hot 세션에서 점검 완료, 콜드에 전달):** base 프로파일 앱 8080 health UP(phase3-8 아님·`SET NAMES latin1` 없음)·coupon id=1 canonical seed(total_qty=100·issued=0·coupon_issue 0)·리셋 `scripts/coupon/reset-coupon.sql`·부하 `scripts/measure/run-coupon-concurrency.sh`.
+  - 산출물 → `results/phase3-9-critical-section-occupancy/`. push는 사람 게이트.
 
 ---
 
