@@ -1,0 +1,18 @@
+# phase 3-9 측정 전용 프로파일 — base(application.yml) 위에 레이어된다.
+# base 기판 유지: utf8mb4(SET NAMES latin1 없음) · redis 6379 · ddl validate. phase3-8 아님.
+# 이 프로파일에서만 CriticalSectionPinsBootAssert(@Profile("occupancy"))가 발화 → 실제 풀/스레드 핀 대조.
+#
+# R1 풀 스윕: OCCUPANCY_POOL 로 실제 풀과 기대 풀을 함께 주입(10/20/30). 부팅 assert가 실측 대조.
+# 자가검증(M5a): OCCUPANCY_EXPECT_POOL 을 OCCUPANCY_POOL 과 다르게 주면 고의 불일치 → abort.
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: ${OCCUPANCY_POOL:10}   # R0/R2/R3/R4=10, R1 스윕=10/20/30
+  jpa:
+    properties:
+      hibernate:
+        # 프로브 SQL 단일라인화(파싱 편의) — 실행·문장당 로깅 이벤트 수 불변이라 측정 무영향, 전 칸 동일.
+        format_sql: false
+
+occupancy:
+  expect-pool: ${OCCUPANCY_EXPECT_POOL:${OCCUPANCY_POOL:10}}

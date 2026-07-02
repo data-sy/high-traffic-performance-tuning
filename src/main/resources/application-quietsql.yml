@@ -1,0 +1,8 @@
+# phase 3-9 부하 런 전용 오버레이 — 프로브가 아닌 성능 측정 시 SQL DEBUG/bind TRACE 로깅을 끈다.
+# 근거: 문장당 DEBUG 로깅 비용은 in-lock 왕복 *수*에 비례(R0=4문 > R4=2문) → 로깅을 켜면 왕복 차이를
+# 인위적으로 증폭해 H_왕복 쪽으로 편향된다. 끄면 그 per-statement 비용이 제거돼 commit floor vs 왕복 신호를
+# 공정하게 가른다(보수적 선택). 전 칸(R0~R4) 동일 적용이라 통제변수. 프로브 보트는 이 프로파일 없이(DEBUG 유지).
+logging:
+  level:
+    org.hibernate.SQL: "OFF"
+    org.hibernate.orm.jdbc.bind: "OFF"
