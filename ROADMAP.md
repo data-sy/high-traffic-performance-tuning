@@ -129,6 +129,11 @@ flowchart LR
 
 날짜·PR 번호는 git history 기준. 상세 변경 내역은 각 PR 또는 `specs/` 해당 phase 스펙 참조.
 
+- **[Phase 3-9 / 임계 구간 점유] 직렬 임계 구간 in-lock 왕복 사다리 R0~R4 — 프로브 카운트 + 반증 가능 판정** — 2026-07-02 (PR [#19](https://github.com/data-sy/high-traffic-performance-tuning/pull/19), `phase/3-9-critical-section-occupancy`)
+  - 3-3(v3 채택)의 **지연 후속**: in-lock DB 왕복을 R0=4→R3=3→R4=2로 줄이고 그 단축의 throughput 번역을 **사전 등록 판정으로 반증 가능하게** 측정. **채택 결정 아님**(무엇을 줄이면 무엇이 commit floor에 가려지는가)
+  - **구조 축(프로브 동시성0)**: R0=4·R2=4·R3=3·R4=2 표 일치(카운트·flush 순서·채점 3게이트 통과). **채점 축**: `r=tput(R4)/tput(R0)=1.20`(≪2.0·반증문턱 1.5 미달·`ε_hi=26.12%<0.5`) → **H_floor 지지**(commit floor 지배). **진단 축(R1)**: 풀 10→30 throughput 평평(503=0) → 천장=점유시간
+  - **정직 후퇴**: r=1.20은 지지밴드 상단 = **~20% 부분 번역**("2× 비례"는 반증, "완전 무번역"은 아님). 정합 게이트 전 칸 PASS(행수==100·초과 0·코드 동일 칸 503=0)
+  - 결과: `results/phase3-9-critical-section-occupancy/`(analysis.md), 회고 [`docs/reports/phase3-9-critical-section-occupancy.md`](docs/reports/phase3-9-critical-section-occupancy.md), 스펙 `specs/phase3/phase3-9-critical-section-occupancy.md`
 - **[종합 / 포트폴리오] 4개 시나리오 종합 리포트 — 판단·측정 규율 횡단** — 2026-06-24 (PR [#17](https://github.com/data-sy/high-traffic-performance-tuning/pull/17), `docs/phase3-synthesis-report`)
   - 인덱스·N+1·랭킹·동시성 4개를 한 문서로 종합(`docs/reports/phase3-synthesis.md`). 횡단 주제: 단일 우승자 거부(워크로드별 배선)·측정 규율(1차 증거=구조량)·trade-off 정직 노출
   - 각 헤드라인: 인덱스 25.2×·랭킹 ≈5,700×·N+1 목록 1150→1·동시성 999→0. 1차 증거를 EXPLAIN·쿼리 수·행 수(인프라 불변)에 두고 레이턴시는 보조이거나 비교 금지

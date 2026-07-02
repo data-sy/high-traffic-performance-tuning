@@ -1,0 +1,14 @@
+=== 프로브 구조 카운트 (동시성 0 단일요청 + 정적 카운트, M1) ===
+칸  기대카운트  관측카운트  flush순서(관측==기대)                     게이트
+R0     4          4        FORUPDATE,ISSUESEL,INSERT,UPDCOUPON        PASS
+R1     4          =R0      (코드 동일 = R0 서비스, 풀만 스윕)          =R0
+R2     4          4        FORUPDATE,ISSUESEL,INSERT,UPDCOUPON        PASS (existsBy 앞 UPDATE 없음)
+R3     3          3        UPDCOUPON(tryConsume),ISSUESEL,INSERT      PASS
+R4     2          2        UPDCOUPON(tryConsume),INSERT               PASS
+
+UPDCOUPON=update coupon (R0/R2=커밋 dirty-flush / R3/R4=tryConsume 조건부 UPDATE)
+ISSUESEL=existsBy SELECT(from coupon_issue) · INSERT=insert into coupon_issue · FORUPDATE=SELECT ... FOR UPDATE
+--- r4 실제 프로브 SQL 발췌(증거) ---
+  insert into coupon_issue (coupon_id,issued_at,user_id) values (?,?,?)
+  update coupon c1_0 set issued=(c1_0.issued+1) where c1_0.id=? and c1_0.issued<c1_0.total_qty
+  insert into coupon_issue (coupon_id,issued_at,user_id) values (?,?,?)
