@@ -78,11 +78,11 @@ flowchart LR
 
 **Stage 2 — 규모/측정 심화**
 - [x] 데이터 스케일업 재측정 — product 1M / order_item 1.5M
-- [ ] B. 커서(keyset) 페이지네이션 — deep offset 문제 (인덱스 시나리오 심화편)
+- [ ] B. 커서(keyset) 페이지네이션 — deep offset 문제 (인덱스 시나리오 심화편) · **Phase 3-10 착수(Now)**
 - [ ] C. 커넥션 풀(HikariCP) 튜닝 — 풀 사이즈 역설(Little's law)
 
 **Stage 3 — 캐시·회복탄력성**
-- [ ] A. 캐시 전략 + 스탬피드 방어 — look-aside, mutex/PER, TTL jitter, penetration
+- [x] A. 캐시 전략 + 스탬피드 방어 — look-aside, mutex/PER, TTL jitter, penetration · **Phase 3-8 완료**
 - [ ] D. 회복탄력성 — Resilience4j (타임아웃·서킷브레이커·벌크헤드)
 - [ ] E. 대량 처리 — JDBC batch / rewriteBatchedStatements
 
@@ -98,13 +98,16 @@ flowchart LR
 
 ## Now — 진행 중
 
-- 진행 중인 작업 없음. 다음 후보는 아래 Next 참조.
+- **Phase 3-10 — 커서(keyset) 페이지네이션 (마스터 체크리스트 B)** — 착수. OFFSET 페이지네이션의 deep-offset 스캔 비용을 keyset(seek) 방식으로 대체하는 인덱스 시나리오 심화편. 단일 노드(Stage 2)라 **Phase 3 연속**(phase 경계=단일노드 vs 분산).
+  - 브랜치: `phase/3-10-cursor-pagination`(main 직속·개별 PR 패턴, 3-7~3-9 계승).
+  - **스펙 미작성** — 다음 착수는 스펙 초안(`specs/phase3/phase3-10-cursor-pagination-draft.md`)부터(draft→다른 세션 audit→비준→콜드 세션 빌드).
+  - 산출물 예정 → `results/phase3-10-cursor-pagination/`.
 
 ---
 
 ## Next — 다음 (착수 예정)
 
-- 다음 후보: **신규 단일 노드 주제 A~E**(마스터 체크리스트 Stage 2~3, 권장순 A→B→C→D→E). 우선순위가 오르면 여기로 승격.
+- 다음 후보: **C 풀 튜닝(3-11) → D 회복탄력성(3-12) → E 배치(3-13)** — 단일 노드라 Phase 3 연속. A(캐시)는 3-8 완료, B(커서)는 3-10으로 Now 승격됨. **F(Kafka/Outbox·read/write 분리 등 분산)는 Phase 4로 예약**(단일노드 vs 분산 경계).
 
 ---
 
