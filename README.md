@@ -94,6 +94,8 @@ flowchart LR
 - **측정을 함부로 믿지 않는 규율.** 측정 함정을 클래스 A(환경 의존)/B(해석 오독)로 분류해, 자동 판정이 못 거르는 거짓 헤드라인을 닫았다.
 
 > 📖 **회고 리포트** → [`docs/reports/phase3-3-concurrency-lock.md`](docs/reports/phase3-3-concurrency-lock.md) — 판단 서사 · 3축 분석(정합 범위 / 경합 흡수 / 갱신 정책) · 방법론 메타회고. 읽는 데 약 15분.
+>
+> ✍️ **블로그 회고** → [쿠폰 발급 동시성 제어 5단계 사다리](https://data-sy.github.io/posts/coupon-concurrency-lock-ladder/) — 위 리포트를 공개 글로 풀어 쓴 서사판.
 
 ---
 
