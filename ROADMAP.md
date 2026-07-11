@@ -121,6 +121,11 @@ flowchart LR
   - D. 회복탄력성 — Resilience4j (타임아웃·서킷·벌크헤드)
   - E. 대량 처리 — JDBC batch
   - F. 분산 토폴로지 — 읽기/쓰기 분리, Kafka + Transactional Outbox (capstone)
+- **[Phase 3-랭킹 후속 / 정합성 버그] top-N 부분집합 write-through의 경계 진입 오류** — 랭킹 v4(채택본)는 실시간 write-through를 **top100 부분집합에만** 적용해, 순위권 밖 상품이 주문을 받아 진입할 때 score가 잘못 계산된다.
+  - **원인 흐름**: 매 증가마다 `RankingV4Service.incrementScore`가 `removeOutOfTop(100)` 호출(`src/main/java/com/project/service/ranking/RankingV4Service.java:48`) → `ZREMRANGEBYRANK`로 하위 원소를 셋에서 완전 제거(`src/main/java/com/project/infrastructure/redis/RankingRedisRepository.java:34-39`). 제거된 상품이 새 주문을 받으면 `ZINCRBY`(`RankingRedisRepository.java:22-24`)가 **부재 멤버의 기준 score를 0으로** 보고 증가시켜, 실제 누적 판매량을 잃고 이번 주문 수량만 반영한다.
+  - **실패 시나리오**: 101위(실판매 499) 상품이 수량 3 주문 → score가 502가 아니라 **3**으로 세팅. 진입 실패 + DB와 어긋난 score 유지. `getScore`도 부재 멤버엔 null 반환(`RankingRedisRepository.java:30-32`).
+  - **완충의 갭**: 유일한 수렴 장치인 시간당 재빌드(`RankingRecoveryService.java:33-74`)는 (a) 최대 1시간 드리프트 허용, (b) 드리프트 감지 범위가 **top10 한정**(`findTopProductsBySales(10)`, `RankingRecoveryService.java:37`)이라 오류 발생 구간(top10~100 경계)을 감지조차 못 함.
+  - **착수 시 검토안**: 증분 전 DB score 시드(get-or-seed) / 절삭 여유폭(top100 유지·판정은 top100) / 감지 범위를 top100로 확대. 스펙 미작성 — 착수 시 `specs/`에 별도 phase 또는 트러블슈팅 문서로 기록.
 - **[기능 폭 / JD 대응] 결제 외부 API 연동 (PG 연동)** — 성능 Stage가 아닌 **기능 경험** 백로그(채용공고에 "결제 연동 경험" 종종 등장). 외부 결제대행사(PG) API 연동 = 결제 승인/취소, **멱등성(idempotency key)**, **웹훅 콜백** 수신·검증, 주문↔결제 상태 정합, 외부 장애 대비(타임아웃·재시도·서킷 → 후보 **D 회복탄력성**과 연결), 보상 트랜잭션
   - 도메인 연계: `Order → Payment @OneToOne` 신규(N+1 후보 #7과도 맞물림). 모의 PG(샌드박스/스텁)로 외부 연동 재현
   - 스펙 미작성 — 착수 시 `specs/`에 별도 phase로 작성
