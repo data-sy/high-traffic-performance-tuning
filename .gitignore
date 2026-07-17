@@ -54,3 +54,6 @@ Thumbs.db
 poc/mysql-explain/results/
 poc/k6-basic/test-result.json
 poc/redis-sortedset/test-results/
+
+# 사적 하네스 도구 + 실주행 산출물 (공개 트리에 섞지 않는다 — devetym 선례. 참조 정본 = ~/dev/agent-harnesses)
+harness/
