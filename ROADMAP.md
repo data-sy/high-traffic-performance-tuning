@@ -27,6 +27,7 @@ flowchart LR
         C4["④ 동시성 락"]:::done
         AS["비동기 발급 큐"]:::done
         N["② N+1 경로별 배선"]:::done
+        AD["입구 판정 admission"]:::next
     end
 
     subgraph S2["Stage 2 · 규모/측정 (Phase 3)"]
@@ -45,20 +46,21 @@ flowchart LR
         FF["F. Kafka + Outbox / replica"]:::cap
     end
 
-    DOC["종합 리포트"]:::todo
+    DOC["종합 리포트"]:::done
 
     F0 --> I & R & C4
     I --> B
     I --> N
     R --> A
     C4 --> AS & D
+    AS --> AD
     SU --> B & C
     N -.권장 선행.-> A
     N --> DOC
     A & B & C & D & E --> FF
 ```
 
-범례: 🟩 완료 · 🟦 미착수 후보 · 🟪 capstone  (다음 착수는 아래 Now/Next 칸반이 정본)
+범례: 🟩 완료 · 🟨 진행 중 · 🟦 미착수 후보 · 🟪 capstone  (다음 착수는 아래 Now/Next 칸반이 정본)
 
 **Phase 매핑:** Stage 0 = Phase 1·2(토대) · **Stage 1~3 = Phase 3**(단일 노드 모놀리식 성능 — 코어 4종 + 캐시·페이지네이션·풀·회복탄력성·배치) · **Stage 4 = Phase 4**(분산·이벤트 토폴로지). phase 경계 기준은 "원래 4종을 다 했나"가 아니라 **단일 노드 vs 분산**이다 — ② N+1(3-7)은 코어 4종을 닫지만 Phase 3의 끝은 아니며, A~E도 단일 노드라 Phase 3(3-8~)에 속한다. phase는 더 잘게 쪼개지 않는다(가벼운 phase-spec 체계 유지, 아래 「작업 단위 분할 원칙」).
 
@@ -75,14 +77,15 @@ flowchart LR
 - [x] ③ 실시간 랭킹 — Redis Sorted Set
 - [x] ④ 동시성 제어 — 분산 락 (+ 다중 인스턴스 정합 실증)
 - [x] 비동기 발급 — 큐 사다리 (@Async → Redis List → Redis Stream)
+- [ ] ④ 심화 — 입구 판정(admission control): 요청 접수/발급 분리 · 정원 컷 · **Phase 3-11 착수(Now)**
 
 **Stage 2 — 규모/측정 심화**
 - [x] 데이터 스케일업 재측정 — product 1M / order_item 1.5M
-- [ ] B. 커서(keyset) 페이지네이션 — deep offset 문제 (인덱스 시나리오 심화편)
+- [ ] B. 커서(keyset) 페이지네이션 — deep offset 문제 (인덱스 시나리오 심화편) · **Phase 3-10 번호 예약 · Next 대기**
 - [ ] C. 커넥션 풀(HikariCP) 튜닝 — 풀 사이즈 역설(Little's law)
 
 **Stage 3 — 캐시·회복탄력성**
-- [ ] A. 캐시 전략 + 스탬피드 방어 — look-aside, mutex/PER, TTL jitter, penetration
+- [x] A. 캐시 전략 + 스탬피드 방어 — look-aside, mutex/PER, TTL jitter, penetration · **Phase 3-8 완료**
 - [ ] D. 회복탄력성 — Resilience4j (타임아웃·서킷브레이커·벌크헤드)
 - [ ] E. 대량 처리 — JDBC batch / rewriteBatchedStatements
 
@@ -98,18 +101,32 @@ flowchart LR
 
 ## Now — 진행 중
 
-- 진행 중인 작업 없음. 다음 후보는 아래 Next 참조.
+- **Phase 3-11 — 입구 판정(admission control): 요청 접수와 발급의 분리 (시나리오 ④ 심화)** — 착수. `total_qty=100` 한정 쿠폰에서 모든 요청을 발급 경로로 흘려보내는 대신, **입구에서 도착 순서를 세우고 정원(100 + 버퍼, 예: 110)에서 잘라낸 뒤** 통과분만 발급으로 넘긴다. 초과분은 발급 경로에 들어오지 못하고 즉시 거절된다. 단일 노드(Stage 1 심화)라 **Phase 3 연속**.
+  - **왜 방향을 바꾸나 — 임계 구간 내부 최적화의 상한은 이미 실측됐다.** v3(비관락)가 남긴 지연은 "락 안을 더 깎아서" 닫히지 않는다. 3-9에서 in-lock DB 왕복을 4→2로 줄였으나 throughput 번역은 `r=1.20`(반증 문턱 1.5 미달)에 그쳤고, 비용은 왕복 *수*가 아니라 **commit floor**가 지배했다. 풀을 10→30으로 넓혀도 평평했다(R1 스윕) — 천장이 풀이 아니라 **점유 시간**이라는 뜻. 남은 지렛대는 임계 구간 내부가 아니라 **경쟁하는 요청 수 자체**다 → 부하를 **입구에서 흡수**한다.
+    - 근거 기록: 3-3 회고 [`docs/reports/phase3-3-concurrency-lock.md`](docs/reports/phase3-3-concurrency-lock.md) §4(v3 = Hikari active 10/10 · pending 189 · p95 2630ms · 503=0) / 3-9 회고 [`docs/reports/phase3-9-critical-section-occupancy.md`](docs/reports/phase3-9-critical-section-occupancy.md) §1·§5·§6(`r=1.20`, commit floor 지배, 풀 스윕 평평)
+  - **3-4(비동기 발급)와 중복이 아닌 이유 — 미뤄둔 Fork A를 여는 phase.** 3-4는 큐 매체 사다리를 재면서 재고 판정을 **컨슈머가 DB 앞에서** 했다(**Fork B = 출구 판정**). 그때 **Fork A(입구 Redis 선판정)는 "이중 진실 소스가 별도 주제"라며 명시적으로 범위 밖**으로 남겼다(`specs/phase3/phase3-4-async-issuance.md:25`, `docs/reports/phase3-4-async-issuance.md:289`). 3-11이 그 별도 주제다.
+  - **미결 ① 입구 자료구조 — 후보를 나열·비교해 채택안을 정한다**(사다리 구성은 스펙에서 확정). 후보: Redis String `INCR` 원자 카운터 / Redis Sorted Set(`ZADD` + `ZRANK`) / Redis List(`LPUSH` + `LLEN`) / Lua로 정원 컷 + 1인 1매 중복검사 원자 결합 / Redisson 세마포어 / 앱 로컬 카운터(다중 인스턴스에서 깨지는 반례 — 3-3 v2와 동형이라 사다리 하단 후보)
+    - 비교축: (a) 정원 컷의 원자성(경합 하에서 정확히 N만 통과) (b) 순번·자기 순위 조회 가능 여부 (c) 취소·이탈·중복요청 처리 (d) 재기동·장애 시 잔존 (e) **이중 진실 소스**(Redis 카운터 ↔ DB `coupon_issue` 행 수) 어긋남의 감지·회복 (f) 비용(O(1) vs O(log N) · 메모리)
+  - **미결 ② 버퍼 폭(예: 110)의 근거** — 통과 후 발급 실패·이탈을 흡수하는 여유분. 폭을 무엇으로 정하고 초과 통과분을 어디서 다시 막는지(최종 판정은 여전히 DB)를 스펙에서 확정. 거절 응답 코드(409/429 등)도 함께.
+  - **고정 게이트(3-3 계승)**: **초과발급 0**이 통과 게이트, 최종 진실 소스는 DB `coupon_issue` 행 수. 입구 컷은 **부하 흡수**이지 정합의 근거가 아니다.
+  - 브랜치: `phase/3-11-admission-control`(main 직속·개별 PR 패턴, 3-7~3-9 계승).
+  - **스펙 미작성** — 다음 착수는 스펙 초안(`specs/phase3/phase3-11-admission-control-draft.md`)부터(draft→다른 세션 audit→비준→콜드 세션 빌드).
+  - 산출물 예정 → `results/phase3-11-admission-control/`.
 
 ---
 
 ## Next — 다음 (착수 예정)
 
-- 다음 후보: **신규 단일 노드 주제 A~E**(마스터 체크리스트 Stage 2~3, 권장순 A→B→C→D→E). 우선순위가 오르면 여기로 승격.
+- **Phase 3-10 — 커서(keyset) 페이지네이션 (마스터 체크리스트 B)** — 번호 예약 상태. OFFSET 페이지네이션의 deep-offset 스캔 비용을 keyset(seek) 방식으로 대체하는 인덱스 시나리오 심화편. **착수했다가 코드 없이 되돌린 이력**: 브랜치 `phase/3-10-cursor-pagination`은 잡무·문서 커밋만 담고 있어 main에 흡수·삭제했고, 착수 시 최신 main에서 다시 딴다. 스펙 미작성(`specs/phase3/phase3-10-cursor-pagination-draft.md`부터).
+- 그 뒤 후보: **C 풀 튜닝 → D 회복탄력성 → E 배치** — 단일 노드라 Phase 3 연속. **번호는 착수 순서로 부여**하므로 후보에 번호를 미리 고정하지 않는다. A(캐시)는 3-8 완료. **F(Kafka/Outbox·read/write 분리 등 분산)는 Phase 4로 예약**(단일노드 vs 분산 경계).
 
 ---
 
 ## Later — 백로그 (아직 미착수, 검토 단계)
 
+- **[Phase 3-11 후속 생각거리] 한정 자원의 "거절" vs "대기" — 예매 대기열 시맨틱** — 쿠폰 발급은 정원 초과분을 **튕겨내는** 게 맞다(재고 100이 고정이고, 기다려도 자리가 생기지 않으므로). 반면 예매·티켓팅처럼 **취소·결제 실패로 자리가 되돌아오는** 자원은 초과분을 거절 대신 **대기열에 보존**하는 편이 적절할 수 있다 — 같은 "입구 판정"이라도 컷의 의미가 달라진다.
+  - 검토축: 순번의 공정성(FIFO 보장·새치기 방지) / 대기 상태 노출(내 순번·예상 대기시간) / 이탈 감지(하트비트·TTL로 유령 대기 제거) / 자리 반환 시 승계 / 대기열 규모(수십만 대기 시 자료구조·메모리) / 입장 토큰의 유효시간
+  - 3-11의 채택안이 정해진 뒤 "같은 구조로 대기 시맨틱까지 갈 수 있나"를 되짚는 자리. 착수 시 별도 phase.
 - **[Phase 3-5 후속] concurrency 503 분해 패널 실데이터 캡처** — `concurrency.json`의 ⓐ/ⓑ/ⓒ(503 원인) 패널은 정상이나, 503을 내려면 풀 포화/락대기 유발 부하(쿠폰 재고·Hikari 풀 크기 등 파라미터 조정)가 필요. 향후 동시성 재측정 맥락에서 실데이터로 캡처
 - **[신규 시나리오 후보군] 마스터 체크리스트 Stage 2~4 미착수 주제** — 상세는 상단 「성능 주제 마스터 체크리스트」 참조. 우선순위 오르면 개별 Phase로 떼어 Next 승격(권장 착수 순: A 캐시 스탬피드 → B 커서 페이지네이션 → C 풀 튜닝 → D 회복탄력성 → E 배치 → F Kafka/Outbox)
   - A. 캐시 전략 + 스탬피드 방어 (look-aside·mutex/PER·TTL jitter)
@@ -118,6 +135,11 @@ flowchart LR
   - D. 회복탄력성 — Resilience4j (타임아웃·서킷·벌크헤드)
   - E. 대량 처리 — JDBC batch
   - F. 분산 토폴로지 — 읽기/쓰기 분리, Kafka + Transactional Outbox (capstone)
+- **[Phase 3-랭킹 후속 / 정합성 버그] top-N 부분집합 write-through의 경계 진입 오류** — 랭킹 v4(채택본)는 실시간 write-through를 **top100 부분집합에만** 적용해, 순위권 밖 상품이 주문을 받아 진입할 때 score가 잘못 계산된다.
+  - **원인 흐름**: 매 증가마다 `RankingV4Service.incrementScore`가 `removeOutOfTop(100)` 호출(`src/main/java/com/project/service/ranking/RankingV4Service.java:48`) → `ZREMRANGEBYRANK`로 하위 원소를 셋에서 완전 제거(`src/main/java/com/project/infrastructure/redis/RankingRedisRepository.java:34-39`). 제거된 상품이 새 주문을 받으면 `ZINCRBY`(`RankingRedisRepository.java:22-24`)가 **부재 멤버의 기준 score를 0으로** 보고 증가시켜, 실제 누적 판매량을 잃고 이번 주문 수량만 반영한다.
+  - **실패 시나리오**: 101위(실판매 499) 상품이 수량 3 주문 → score가 502가 아니라 **3**으로 세팅. 진입 실패 + DB와 어긋난 score 유지. `getScore`도 부재 멤버엔 null 반환(`RankingRedisRepository.java:30-32`).
+  - **완충의 갭**: 유일한 수렴 장치인 시간당 재빌드(`RankingRecoveryService.java:33-74`)는 (a) 최대 1시간 드리프트 허용, (b) 드리프트 감지 범위가 **top10 한정**(`findTopProductsBySales(10)`, `RankingRecoveryService.java:37`)이라 오류 발생 구간(top10~100 경계)을 감지조차 못 함.
+  - **착수 시 검토안**: 증분 전 DB score 시드(get-or-seed) / 절삭 여유폭(top100 유지·판정은 top100) / 감지 범위를 top100로 확대. 스펙 미작성 — 착수 시 `specs/`에 별도 phase 또는 트러블슈팅 문서로 기록.
 - **[기능 폭 / JD 대응] 결제 외부 API 연동 (PG 연동)** — 성능 Stage가 아닌 **기능 경험** 백로그(채용공고에 "결제 연동 경험" 종종 등장). 외부 결제대행사(PG) API 연동 = 결제 승인/취소, **멱등성(idempotency key)**, **웹훅 콜백** 수신·검증, 주문↔결제 상태 정합, 외부 장애 대비(타임아웃·재시도·서킷 → 후보 **D 회복탄력성**과 연결), 보상 트랜잭션
   - 도메인 연계: `Order → Payment @OneToOne` 신규(N+1 후보 #7과도 맞물림). 모의 PG(샌드박스/스텁)로 외부 연동 재현
   - 스펙 미작성 — 착수 시 `specs/`에 별도 phase로 작성
