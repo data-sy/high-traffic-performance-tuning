@@ -80,6 +80,7 @@ flowchart LR
 
 > ① 인덱스·③ 랭킹은 100만/150만 규모에서도 재측정 완료 — 대용량 거동은 [`docs/reports/phase3-6-scale-up.md`](docs/reports/phase3-6-scale-up.md)(Phase 3-6).
 > ② N+1은 스케일업된 100만/150만 토대 위에서 측정 완료 — 목록·상세 두 경로의 N+1을 v1~v5로 해소하고, 단일 우승자 대신 경로별로 v3/v4/v5를 배선했다(Phase 3-7 → [`docs/reports/phase3-7-n-plus-one.md`](docs/reports/phase3-7-n-plus-one.md)).
+> 🔬 **심화 phase (코어 4종 이후)** — 단일 노드 위에서 계속 쌓은 측정: **읽기 캐시 + 스탬피드 방어**(Phase 3-8 → [`docs/reports/phase3-8-cache-stampede.md`](docs/reports/phase3-8-cache-stampede.md)) · **직렬 임계 구간 점유**(Phase 3-9 → [`docs/reports/phase3-9-critical-section-occupancy.md`](docs/reports/phase3-9-critical-section-occupancy.md)). 진행 중인 작업은 [`ROADMAP.md`](ROADMAP.md) `## Now`가 정본이다.
 > ⭐ **4개 시나리오 종합** — 위 4개를 관통하는 판단·측정 규율(단일 우승자 거부 · 1차 증거=구조량 · trade-off 정직 노출)은 [`docs/reports/phase3-synthesis.md`](docs/reports/phase3-synthesis.md)에 한 문서로 묶었다.
 
 ---

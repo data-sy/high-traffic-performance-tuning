@@ -188,6 +188,7 @@ flowchart LR
 - **[시나리오 ④ / 검증] 다중 인스턴스 정합 실증 (보강#1)** — 2026-06 (PR [#10](https://github.com/data-sy/high-traffic-performance-tuning/pull/10), `phase/3-3-multi-instance`)
   - 동일 v1~v5 락 코드 + 다중 인스턴스 토폴로지(앱 N replica + Nginx LB + Prometheus 타깃 N개), 하네스 무수정 재사용(`-e BASE=<LB>`·`noConnectionReuse` 설정만)
   - 결과: **v2(synchronized) 붕괴 재현** + **v3~v5 경계초월 정합 유지**(Σ 인스턴스 == DB) → "다중서버 = 공유 좌표 필요, v3가 이미 제공"을 데이터로 확정. "단일 JVM 미실증" 정직성 꼬리표 제거
+  - ⚠️ **재현 자산은 이 repo에 없다(2026-08-26 확인)** — 결론만 여기 기록돼 있고, 토폴로지 정의(다중 인스턴스 compose·LB 설정)도 k6 산출물(`results/`)도 트리에 없다. PR #10 브랜치의 커밋은 문서만 담고 있다. ⇒ **다른 phase에서 이 실험을 근거로 인용하거나 토폴로지를 재사용하려면 재구축이 필요**하다. 3-3 v2 붕괴 자체의 인용 근거로는 트리 안의 정본 `results/phase3-3-concurrency/analysis.md`를 쓴다.
 - **[시나리오 ④] 동시성 제어 — 쿠폰 발급 락 사다리** — 2026-06-08 (PR [#8](https://github.com/data-sy/high-traffic-performance-tuning/pull/8), [#9](https://github.com/data-sy/high-traffic-performance-tuning/pull/9), `phase/3-3-concurrency-lock`)
   - **v1** no lock(초과 999 재현) → **v2** synchronized → **v3** SELECT FOR UPDATE(★ 프로덕션 채택) → **v4** Redisson RLock → **v5** 커스텀 SET NX+Lua, + fencing 스톨 데모
   - 워크로드 적합성으로 v3 채택(락↔데이터 동치 → fencing 무공백). throughput 버전 간 직접 비교 금지 규율, 통제변수 핀, 503 ⓐ/ⓑ/ⓒ 분류
