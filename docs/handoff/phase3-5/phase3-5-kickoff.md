@@ -1,6 +1,8 @@
 # Phase 3-5 킥오프 — Grafana 프로비저닝-as-code
 
-> **다음 세션에서 이 파일을 읽고 진행하세요.** ("이 md 읽고 진행해줘")
+> **상태: ✅ 완료 (2026-06-16 · PR [#14](https://github.com/data-sy/high-traffic-performance-tuning/pull/14)).** 이 문서는 착수 시점의 킥오프 기록이다 — **지금 이 지시를 따라 새로 진행하지 말 것.** 결과는 `docker/grafana/`·`results/phase3-5-monitoring/`, 현재 진행 중인 작업은 [`ROADMAP.md`](../../../ROADMAP.md) `## Now`가 정본.
+
+> <sub>(원문 보존) 다음 세션에서 이 파일을 읽고 진행하세요. ("이 md 읽고 진행해줘")</sub>
 
 ## 작업
 Phase 3-5 — Grafana 관측 스택을 **프로비저닝-as-code**로 구현.
