@@ -101,7 +101,51 @@ flowchart LR
 
 ## Now — 진행 중
 
-- **Phase 3-11 — 입구 판정(admission control): 요청 접수와 발급의 분리 (시나리오 ④ 심화)** — 착수. `total_qty=100` 한정 쿠폰에서 모든 요청을 발급 경로로 흘려보내는 대신, **입구에서 도착 순서를 세우고 정원(100 + 버퍼, 예: 110)에서 잘라낸 뒤** 통과분만 발급으로 넘긴다. 초과분은 발급 경로에 들어오지 못하고 즉시 거절된다. 단일 노드(Stage 1 심화)라 **Phase 3 연속**.
+**진행 중인 phase 없음 — 로컬 환경 정리·GitHub 아카이브 (2026-09-13).**
+
+이 repo는 **GitHub(`data-sy/high-traffic-performance-tuning`)를 정본으로 두고 로컬 작업 환경을 걷어낸 상태**다.
+로컬 디렉토리(`~/high-traffic-performance-tuning`)와 Docker 스택(컨테이너·볼륨)을 삭제했으므로,
+재개하려면 아래 절차로 환경을 다시 세운다. **코드·스펙·측정 결과·리포트는 전부 origin/main에 있다**(유실 없음).
+
+### 재개 절차 (클론 후 콜드 스타트)
+
+**절차 정본은 [`README.md` §6 로컬 실행](README.md#6-로컬-실행)** — 여기 복제하지 않는다. 순서만 요약:
+
+1. `git clone git@github.com:data-sy/high-traffic-performance-tuning.git`
+2. `docker compose -f docker/docker-compose.yml up -d` — mysql·redis·prometheus·grafana
+3. ⚠️ **스키마 부트스트랩**(README §6.2): 볼륨이 비어 `ddl-auto: validate`로는 부팅이 실패한다. `application.yml`을 1회만 `create`로 바꿔 기동 → 테이블 생성 후 `validate`로 되돌린다(되돌린 상태를 커밋).
+4. 시드 **하나**를 고른다 — 세 스크립트 모두 시작 시 TRUNCATE라 **상호 배타**다:
+   - `scripts/init-seed-data.sh` — 소량 구조 검증(product 100)
+   - `scripts/generate-test-data.sh` — 10만 스케일(product 10만 · order_item ≈15만)
+   - `scripts/scale/load-scale-up.sh` — **100만 스케일**(product 100만 · orders 50만 · order_item 150만). `results/`의 3-6 이후 측정과 repo 소개 문구의 기준이 이쪽이다.
+5. `./gradlew bootRun` → `k6 run test/load/*.js` 또는 `scripts/measure/run-*.sh`
+
+**콜드 스타트 함정 2종**(둘 다 기존 문서에 근거 있음):
+
+- **한글 카테고리 매칭** — 100만 데이터셋의 `product.category`는 cp1252 이중 인코딩으로 적재돼 있어, 커넥션이 `latin1`이 아니면 `전자기기` 등으로 조회해도 0건이 나온다. 부하 테스트는 status 200뿐 아니라 **본문(`totalElements > 0`)까지 검증**해야 조용한 빈 결과를 잡는다. 근거·처방: `docs/reports/phase3-8-cache-stampede.md`, `results/phase3-8-cache-stampede/INVALID-RUNS.md`, 커넥션 예시 `src/main/resources/application-phase3-8.yml`.
+- **측정 수치 비교 금지** — 머신·런타임이 통제변수다. 재측정본을 3-6·3-7·3-9 기존 결과와 나란히 놓지 않는다. 비교가 필요하면 동일 환경에서 재측정한 짝을 새로 뜬다(3-3·3-9 측정 규율).
+
+`docker/docker-compose.phase3-4.yml`·`phase3-8.yml`은 해당 phase 전용 격리 스택(본체와 별도 프로젝트·볼륨·포트)이다.
+
+### repo에 담지 않은 것 (로컬 별도 보존)
+
+정리하면서 **엔지니어링 산출물은 전부 main으로 올렸고**, 나머지는 로컬에 별도 보존하거나 폐기했다.
+
+| 대상 | 처리 |
+|---|---|
+| `specs/phase4/phase4-1-event-pipeline-outbox-draft.md` | **main으로 승격**(이번 커밋) — Stage 4 F의 이벤트 파이프라인 초안, 미비준 |
+| 스펙 초안 작성·검수용 작업 문서 (`prompts/` 일부, 리뷰 기록) | repo 밖 로컬 아카이브로 이관 — 산출물이 아닌 과정 기록이라 제외 |
+| `.claude/settings.local.json` (로컬 권한 설정·세션 훅) | 로컬 아카이브에 복사 (gitignore 대상) |
+| `results/**/*.log` (앱·k6 원시로그 ≈75MB, gitignore) | 폐기 — 분석 산출물(`.tsv`·`analysis.md`·리포트)은 main에 있음 |
+| 로컬 브랜치 `phase/3-11-admission-control` | 폐기 — main의 조상이라 고유 커밋 0 |
+
+착수 직전에 멈춘 **Phase 3-11(입구 판정)** 은 스펙조차 없어 Next 최상단으로 되돌렸다.
+
+---
+
+## Next — 다음 (착수 예정)
+
+- **Phase 3-11 — 입구 판정(admission control): 요청 접수와 발급의 분리 (시나리오 ④ 심화)** — **보류**(미착수 · 브랜치만 생성·커밋 0 · 스펙 미작성). **보류 사유:** 2026-09-13 로컬 작업 환경 정리·GitHub 아카이브로 개발 중단(Now 참조) — 재개는 클론 후 스펙 초안부터. `total_qty=100` 한정 쿠폰에서 모든 요청을 발급 경로로 흘려보내는 대신, **입구에서 도착 순서를 세우고 정원(100 + 버퍼, 예: 110)에서 잘라낸 뒤** 통과분만 발급으로 넘긴다. 초과분은 발급 경로에 들어오지 못하고 즉시 거절된다. 단일 노드(Stage 1 심화)라 **Phase 3 연속**.
   - **왜 방향을 바꾸나 — 임계 구간 내부 최적화의 상한은 이미 실측됐다.** v3(비관락)가 남긴 지연은 "락 안을 더 깎아서" 닫히지 않는다. 3-9에서 in-lock DB 왕복을 4→2로 줄였으나 throughput 번역은 `r=1.20`(반증 문턱 1.5 미달)에 그쳤고, 비용은 왕복 *수*가 아니라 **commit floor**가 지배했다. 풀을 10→30으로 넓혀도 평평했다(R1 스윕) — 천장이 풀이 아니라 **점유 시간**이라는 뜻. 남은 지렛대는 임계 구간 내부가 아니라 **경쟁하는 요청 수 자체**다 → 부하를 **입구에서 흡수**한다.
     - 근거 기록: 3-3 회고 [`docs/reports/phase3-3-concurrency-lock.md`](docs/reports/phase3-3-concurrency-lock.md) §4(v3 = Hikari active 10/10 · pending 189 · p95 2630ms · 503=0) / 3-9 회고 [`docs/reports/phase3-9-critical-section-occupancy.md`](docs/reports/phase3-9-critical-section-occupancy.md) §1·§5·§6(`r=1.20`, commit floor 지배, 풀 스윕 평평)
   - **3-4(비동기 발급)와 중복이 아닌 이유 — 미뤄둔 Fork A를 여는 phase.** 3-4는 큐 매체 사다리를 재면서 재고 판정을 **컨슈머가 DB 앞에서** 했다(**Fork B = 출구 판정**). 그때 **Fork A(입구 Redis 선판정)는 "이중 진실 소스가 별도 주제"라며 명시적으로 범위 밖**으로 남겼다(`specs/phase3/phase3-4-async-issuance.md:25`, `docs/reports/phase3-4-async-issuance.md:289`). 3-11이 그 별도 주제다.
@@ -112,11 +156,6 @@ flowchart LR
   - 브랜치: `phase/3-11-admission-control`(main 직속·개별 PR 패턴, 3-7~3-9 계승).
   - **스펙 미작성** — 다음 착수는 스펙 초안(`specs/phase3/phase3-11-admission-control-draft.md`)부터(draft→다른 세션 audit→비준→콜드 세션 빌드).
   - 산출물 예정 → `results/phase3-11-admission-control/`.
-
----
-
-## Next — 다음 (착수 예정)
-
 - **Phase 3-10 — 커서(keyset) 페이지네이션 (마스터 체크리스트 B)** — 번호 예약 상태. OFFSET 페이지네이션의 deep-offset 스캔 비용을 keyset(seek) 방식으로 대체하는 인덱스 시나리오 심화편. **착수했다가 코드 없이 되돌린 이력**: 브랜치 `phase/3-10-cursor-pagination`은 잡무·문서 커밋만 담고 있어 main에 흡수·삭제했고, 착수 시 최신 main에서 다시 딴다. 스펙 미작성(`specs/phase3/phase3-10-cursor-pagination-draft.md`부터).
 - 그 뒤 후보: **C 풀 튜닝 → D 회복탄력성 → E 배치** — 단일 노드라 Phase 3 연속. **번호는 착수 순서로 부여**하므로 후보에 번호를 미리 고정하지 않는다. A(캐시)는 3-8 완료. **F(Kafka/Outbox·read/write 분리 등 분산)는 Phase 4로 예약**(단일노드 vs 분산 경계).
 
@@ -135,6 +174,7 @@ flowchart LR
   - D. 회복탄력성 — Resilience4j (타임아웃·서킷·벌크헤드)
   - E. 대량 처리 — JDBC batch
   - F. 분산 토폴로지 — 읽기/쓰기 분리, Kafka + Transactional Outbox (capstone)
+    - **F의 이벤트 파이프라인 절반은 초안이 이미 있다** → [`specs/phase4/phase4-1-event-pipeline-outbox-draft.md`](specs/phase4/phase4-1-event-pipeline-outbox-draft.md) (Outbox → Kafka → DLQ 사다리 v7a/v7b/v7c). **미비준 초안** — 착수 시 `/audit-doc`·`design-review`로 「비준 미결 질문」(Q1~) 먼저 해소하고 `-draft`를 뗀다. 읽기/쓰기 분리(replica routing)와 CDC 릴레이는 그 초안에서도 명시적 범위 밖.
 - **[Phase 3-랭킹 후속 / 정합성 버그] top-N 부분집합 write-through의 경계 진입 오류** — 랭킹 v4(채택본)는 실시간 write-through를 **top100 부분집합에만** 적용해, 순위권 밖 상품이 주문을 받아 진입할 때 score가 잘못 계산된다.
   - **원인 흐름**: 매 증가마다 `RankingV4Service.incrementScore`가 `removeOutOfTop(100)` 호출(`src/main/java/com/project/service/ranking/RankingV4Service.java:48`) → `ZREMRANGEBYRANK`로 하위 원소를 셋에서 완전 제거(`src/main/java/com/project/infrastructure/redis/RankingRedisRepository.java:34-39`). 제거된 상품이 새 주문을 받으면 `ZINCRBY`(`RankingRedisRepository.java:22-24`)가 **부재 멤버의 기준 score를 0으로** 보고 증가시켜, 실제 누적 판매량을 잃고 이번 주문 수량만 반영한다.
   - **실패 시나리오**: 101위(실판매 499) 상품이 수량 3 주문 → score가 502가 아니라 **3**으로 세팅. 진입 실패 + DB와 어긋난 score 유지. `getScore`도 부재 멤버엔 null 반환(`RankingRedisRepository.java:30-32`).
